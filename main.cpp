@@ -7,7 +7,6 @@
 
 #include "dictionary.hpp"
 #include "dfa.hpp"
-#include "utils.hpp"
 
 using namespace Gecode;
 
