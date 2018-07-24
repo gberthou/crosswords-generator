@@ -200,7 +200,7 @@ int main(void)
     dfa_borderH = dictDFA.BorderH();
     dfa_borderV = dictDFA.BorderV();
     dfa_firstH = dictDFA.FirstH();
-    dfa_firstV = dictDFA.FirstH();
+    dfa_firstV = dictDFA.FirstV();
     dfa_secondH = dictDFA.SecondH();
     dfa_secondV = dictDFA.SecondV();
 
