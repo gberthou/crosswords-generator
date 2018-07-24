@@ -172,42 +172,6 @@ private:
         return ++latestState;
     }
 
-    int createLengthState(int length)
-    {
-        int state = createState();
-        // Initial state is always 0
-        transitions.insert(std::make_pair(DictionaryTransition{0, length}, state));
-        return state;
-    }
-
-    void createPositionStates(int initialState, size_t maxPos)
-    {
-        int previous = 0; // Initial value is don't care, will be initialized before first read
-
-        // For each possible position
-        for(size_t i = 0; i <= maxPos; ++i)
-        {
-            int reverseLength = maxPos - i;
-            int state = createState();
-            // Add a transition from initialState to the given position state
-            transitions.insert(std::make_pair(DictionaryTransition{initialState, reverseLength}, state));
-
-            // Transitions between position states
-            // (n-1) -> (n-2) -> ... -> (1) -> (0)
-            if(i == maxPos - 1) // If position > 0, we want at least one adjacent black tile
-                transitions.insert(std::make_pair(DictionaryTransition{previous, DFA_MAX_SYMBOL}, state));
-            else if(i > 0)
-            {
-                for(int s = DFA_MIN_SYMBOL; s <= DFA_MAX_SYMBOL; ++s)
-                {
-                    transitions.insert(std::make_pair(DictionaryTransition{previous, s}, state));
-                }
-            }
-
-            previous = state;
-        }
-    }
-
     // make_state_final
     // Must be called after having called createDontCareLoop
     void makeStateFinal(int state)

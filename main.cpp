@@ -26,7 +26,7 @@ static DFA * dfa_secondV;
 class Crosswords: public Script
 {
     public:
-        Crosswords(const SizeOptions &opt):
+        explicit Crosswords(const SizeOptions &opt):
             Script(opt),
             width(opt.size() & 0xff),
             height((opt.size() >> 8) & 0xff),
