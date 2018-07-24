@@ -71,11 +71,9 @@ class Crosswords: public Script
             IntVarArgs rightborderV = letters.slice(width-1, width, height) + indBV[1];
             extensional(*this, rightborderV, *dfa_borderV);
 
-#if 0
             // Impose mandatory words
             for(int indice : mandatoryIndices)
                 count(*this, allIndices, indice, IRT_EQ, 1);
-#endif
 
             // Horizontal words
             for(size_t y = 1; y < height-1; ++y)
@@ -103,18 +101,39 @@ class Crosswords: public Script
                 rel(*this, wordPos2V[x-1] == wordPos1V[x-1] + wordLen1V[x-1] + 1);
             }
 
-            /*
-            auto indexValBrancher = [](const Space &, IntVar x, int) {
-                for(int index : mandatoryIndices)
-                    if(x.in(index))
-                        return index;
-                return x.max();
-            };
-            */
+#if 0
+            branch(*this, allIndices, INT_VAR_NONE(), INT_VAL_RND(std::time(nullptr)));
+#else
+            Rnd rnd(std::time(nullptr));
+            auto indexValBrancher = [rnd](const Space &, IntVar x, int) mutable {
+                for(Int::ViewRanges<Int::IntView> i(x); i(); ++i)
+                {
+                    int min = i.min();
+                    int max = i.max();
 
-            branch(*this, indBH+indBV+ind1H+ind1V+ind2H+ind2V, INT_VAR_NONE(), INT_VAL_RND(std::time(nullptr)));
+                    for(int index : mandatoryIndices)
+                        if(index >= min && index <= max)
+                            return index;
+                }
+
+                // If program reaches this part, mandatory indices were unavailable (either none were specified, or are assigned to other words)
+                // Then perform random assignment amongst available values
+                // (Copy-pasted from original Gecode ValSelRnd<View>::val(...))
+                unsigned int p = rnd(x.size());
+                for (Int::ViewRanges<Int::IntView> i(x); i(); ++i)
+                {
+                    if (i.width() > p)
+                        return i.min() + static_cast<int>(p);
+                    p -= i.width();
+                }
+
+                // Dead code since random selection cannot fail
+                GECODE_NEVER;
+                return 0;
+            };
+            branch(*this, allIndices, INT_VAR_NONE(), INT_VAL(indexValBrancher));
+#endif
             branch(*this, wordPos1H+wordPos1V, INT_VAR_NONE(), INT_VAL_MIN());
-            branch(*this, wordPos2H+wordPos2V, INT_VAR_NONE(), INT_VAL_MAX());
         }
 
         Crosswords(Crosswords &crosswords):
