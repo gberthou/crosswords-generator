@@ -106,6 +106,14 @@ class Crosswords: public Script
 #else
             Rnd rnd(std::time(nullptr));
             auto indexValBrancher = [rnd](const Space &, IntVar x, int) mutable {
+                // Principle: try mandatory words first if they belong to x's domain.
+                // Otherwise, use random selection within domain.
+
+                // Random generator gets altered regardless of mandatory words being selected or not.
+                unsigned int p = rnd(x.size());
+                int randomIndex;
+                bool randomAssigned = false;
+
                 for(Int::ViewRanges<Int::IntView> i(x); i(); ++i)
                 {
                     int min = i.min();
@@ -114,22 +122,22 @@ class Crosswords: public Script
                     for(int index : mandatoryIndices)
                         if(index >= min && index <= max)
                             return index;
+
+                    // (Copy-pasted from original Gecode ValSelRnd<View>::val(...))
+                    if (i.width() > p)
+                    {
+                        if(!randomAssigned)
+                        {
+                            randomIndex = i.min() + static_cast<int>(p);
+                            randomAssigned = true;
+                        }
+                    }
+                    else
+                        p -= i.width();
                 }
 
                 // If program reaches this part, mandatory indices were unavailable (either none were specified, or are assigned to other words)
-                // Then perform random assignment amongst available values
-                // (Copy-pasted from original Gecode ValSelRnd<View>::val(...))
-                unsigned int p = rnd(x.size());
-                for (Int::ViewRanges<Int::IntView> i(x); i(); ++i)
-                {
-                    if (i.width() > p)
-                        return i.min() + static_cast<int>(p);
-                    p -= i.width();
-                }
-
-                // Dead code since random selection cannot fail
-                GECODE_NEVER;
-                return 0;
+                return randomIndex;
             };
             branch(*this, allIndices, INT_VAR_NONE(), INT_VAL(indexValBrancher));
 #endif
