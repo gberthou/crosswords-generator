@@ -2,10 +2,8 @@
 Crosswords generator based on Gecode Constraint Programming framework.
 
 ## Dependencies
-This generator relies on constraint programming and the source is built on top of Gecode 6.0.1 [1].
+This generator relies on constraint programming and the source is built on top of [Gecode](https://github.com/Gecode/gecode) 6.0.1.
 Cloning Gecode repo and running `make configure && make install` with adequate privileges should suffice to successfully compile this project.
-
-[1](https://github.com/Gecode/gecode)
 
 ## Compiling
 If it's your first time compiling this project, you'll need to `make build`.
