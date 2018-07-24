@@ -13,7 +13,7 @@ using namespace Gecode;
 
 const size_t WIDTH = 9;
 const size_t HEIGHT = 11;
-static Dictionary dictionary("filtered", HEIGHT);
+static Dictionary dictionary("dict", HEIGHT);
 std::set<int> mandatoryIndices;
 
 static DFA * dfa_borderH;
