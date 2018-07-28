@@ -3,7 +3,6 @@
 
 #include <gecode/driver.hh>
 #include <gecode/int.hh>
-#include <gecode/gist.hh>
 
 #include "dictionary.hpp"
 #include "dfa.hpp"
@@ -29,6 +28,7 @@ class Crosswords: public Script
             Script(opt),
             width(opt.size() & 0xff),
             height((opt.size() >> 8) & 0xff),
+
             letters(*this, width * height, 'a', 'z'+1), // Letters go from 'a' to 'z', and black tile is 'z'+1 ('{')
 
             indBH(*this, 2, dictionary.FirstIndexOfLength(width), dictionary.LastIndexOfLength(width)),
@@ -237,22 +237,19 @@ int main(void)
     SizeOptions opt("Crosswords");
     opt.size((HEIGHT<<8) | WIDTH);
     opt.solutions(0);
+
+#if 0
     opt.threads(4);
-
-#if 1
     Script::run<Crosswords, DFS, SizeOptions>(opt);
-
-    /*
+#else
     Crosswords model(opt);
     Search::Options o;
-    Search::Cutoff *c = Search::Cutoff::constant(1);
+    Search::Cutoff *c = Search::Cutoff::constant(200000);
     o.cutoff = c;
+    o.threads = 4;
     RBS<Crosswords, DFS> e(&model, o);
-    */
-#else
-    Crosswords *m = new Crosswords(opt);
-    Gist::dfs(m);
-    delete m;
+    while(auto *p = e.next())
+        p->print(std::cout);
 #endif
 
     delete dfa_borderH;
