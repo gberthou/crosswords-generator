@@ -102,7 +102,7 @@ class Crosswords: public Script
                 rel(*this, wordPos2V[x-1] == wordPos1V[x-1] + wordLen1V[x-1] + 1);
             }
 
-            PropRegex::propregex(*this, letters);
+            PropRegex::propregex(*this, width, height, letters, ind1H+ind2H, ind1V+ind2V, indBH+indBV);
 
             if(!mandatoryIndices.size())
                 branch(*this, allIndices, INT_VAR_NONE(), INT_VAL_RND(std::time(nullptr)));
@@ -223,7 +223,6 @@ class Crosswords: public Script
 int main(void)
 {
     dictionary.AddMandatoryWords("mandatory", HEIGHT, mandatoryIndices);
-    dictionary.TestRegex();
 
     DictionaryDFA dictDFA(dictionary, WIDTH, HEIGHT);
 
