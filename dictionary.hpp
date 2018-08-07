@@ -1,10 +1,12 @@
 #ifndef DICTIONARY_HPP
 #define DICTIONARY_HPP
 
+#include <iostream>
 #include <fstream>
 #include <string>
 #include <vector>
 #include <set>
+#include <regex>
 
 const size_t MIN_INDEX = 256;
 
@@ -75,6 +77,27 @@ class Dictionary
             for(std::set<std::string>::const_iterator it = collection.cbegin(); it != collection.cend() && *it != word; ++it, ++i);
 
             return baseIndex + i;
+        }
+
+        void TestRegex() const
+        {
+            try
+            {
+                std::regex re(".*a", std::regex::extended);
+                for(const auto &col : collections)
+                {
+                    for(const auto &str : col)
+                    {
+                        std::smatch m;
+                        if(std::regex_match(str, m, re))
+                            std::cout << m[0] << std::endl;
+                    }
+                }
+            }
+            catch(const std::regex_error &e)
+            {
+                std::cout << e.what() << std::endl;
+            }
         }
 
     protected:

@@ -6,6 +6,7 @@
 
 #include "dictionary.hpp"
 #include "dfa.hpp"
+#include "prop-regex.hpp"
 
 using namespace Gecode;
 
@@ -100,6 +101,8 @@ class Crosswords: public Script
                 extensional(*this, wordPos2V[x-1] + reducedCol + ind2V[x-1], *dfa_secondV);
                 rel(*this, wordPos2V[x-1] == wordPos1V[x-1] + wordLen1V[x-1] + 1);
             }
+
+            PropRegex::propregex(*this, letters);
 
             if(!mandatoryIndices.size())
                 branch(*this, allIndices, INT_VAR_NONE(), INT_VAL_RND(std::time(nullptr)));
@@ -220,6 +223,7 @@ class Crosswords: public Script
 int main(void)
 {
     dictionary.AddMandatoryWords("mandatory", HEIGHT, mandatoryIndices);
+    dictionary.TestRegex();
 
     DictionaryDFA dictDFA(dictionary, WIDTH, HEIGHT);
 
