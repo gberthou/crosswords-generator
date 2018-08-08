@@ -9,13 +9,16 @@
 
 #include <gecode/int.hh>
 
+#include "dictionary.hpp"
+
 typedef std::vector<Gecode::Int::IntView> VIntView;
 
 class PropRegex : public Gecode::Propagator
 {
     public:
-        PropRegex(Gecode::Space &home, size_t w, size_t h, const VIntView &avletters, const VIntView &avh, const VIntView &avv, const VIntView &avborders):
+        PropRegex(Gecode::Space &home, const Dictionary &dict, size_t w, size_t h, const VIntView &avletters, const VIntView &avh, const VIntView &avv, const VIntView &avborders):
             Gecode::Propagator(home),
+            dictionary(dict),
             width(w),
             height(h),
             vletters(avletters),
@@ -29,6 +32,7 @@ class PropRegex : public Gecode::Propagator
 
         PropRegex(Gecode::Space &home, PropRegex &p):
             Gecode::Propagator(home, p),
+            dictionary(p.dictionary),
             width(p.width),
             height(p.height),
             vletters(p.vletters.size()),
@@ -65,8 +69,15 @@ class PropRegex : public Gecode::Propagator
                 std::vector<std::string> patterns;
                 regex_first(itBegin, itEnd, 1, patterns);
 
-                for(auto i : patterns)
-                    std::cout << i << std::endl;
+                for(const auto &pattern : patterns)
+                {
+                    std::vector<size_t> indicesToRemove;
+                    dictionary.NonMatchingIndices(pattern, indicesToRemove);
+                    for(int i : indicesToRemove)
+                    {
+                        GECODE_ME_CHECK(vh[y-1].nq(home, i));
+                    }
+                }
             }
 
             // Vertical words
@@ -103,7 +114,7 @@ class PropRegex : public Gecode::Propagator
                 vl.reschedule(home, *this, Gecode::Int::PC_INT_VAL);
         }
 
-        static Gecode::ExecStatus post(Gecode::Space &home, size_t width, size_t height, const Gecode::IntVarArgs &letters, const Gecode::IntVarArgs &horizontal, const Gecode::IntVarArgs &vertical, const Gecode::IntVarArgs &borders)
+        static Gecode::ExecStatus post(Gecode::Space &home, const Dictionary &dictionary, size_t width, size_t height, const Gecode::IntVarArgs &letters, const Gecode::IntVarArgs &horizontal, const Gecode::IntVarArgs &vertical, const Gecode::IntVarArgs &borders)
         {
             /* For now, assume that letters are not "same"
             if(letters.same())
@@ -126,13 +137,13 @@ class PropRegex : public Gecode::Propagator
             for(auto &b : borders)
                 vborders.push_back(b);
 
-            (void) new (home) PropRegex(home, width, height, vletters, vh, vv, vborders);
+            (void) new (home) PropRegex(home, dictionary, width, height, vletters, vh, vv, vborders);
             return Gecode::ES_OK;
         }
 
-        static void propregex(Gecode::Space &home, size_t width, size_t height, const Gecode::IntVarArgs &letters, const Gecode::IntVarArgs &horizontal, const Gecode::IntVarArgs &vertical, const Gecode::IntVarArgs &borders)
+        static void propregex(Gecode::Space &home, const Dictionary &dictionary, size_t width, size_t height, const Gecode::IntVarArgs &letters, const Gecode::IntVarArgs &horizontal, const Gecode::IntVarArgs &vertical, const Gecode::IntVarArgs &borders)
         {
-            if(PropRegex::post(home, width, height, letters, horizontal, vertical, borders) != Gecode::ES_OK)
+            if(PropRegex::post(home, dictionary, width, height, letters, horizontal, vertical, borders) != Gecode::ES_OK)
                 home.fail();
         }
 
@@ -204,6 +215,8 @@ class PropRegex : public Gecode::Propagator
                 }
             }
         }
+
+        const Dictionary &dictionary;
 
         size_t width;
         size_t height;

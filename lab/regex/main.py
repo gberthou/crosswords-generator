@@ -13,21 +13,23 @@ def process_regex_first(r):
 
 def regex_first(line):
     black_tiles = list(i+2 for i, j in enumerate(line[2:]) if j == BLACK_TILE)
+
     if len(black_tiles):
         stop = black_tiles[0]
     else:
         stop = len(line)
 
-    if is_assigned(line[1]):
-        if line[1] == BLACK_TILE:
-            start = 2
-        else:
-            start = 0
+    unassigned = list(i+2 for i, j in enumerate(line[2:]) if i+2 < stop and not is_assigned(j))
+    stops = unassigned + [stop]
 
-        r = substr2regex(line, start, stop)
-        yield process_regex_first(r)
-    else:
-        for start in [0, 2]:
+    for start in [0, 2]:
+        if is_assigned(line[1]):
+            if line[1] == BLACK_TILE and start != 2:
+                continue
+            elif start != 0:
+                continue
+
+        for stop in stops:
             r = substr2regex(line, start, stop)
             yield process_regex_first(r)
 
@@ -54,6 +56,7 @@ samples = [
     "C?ABC???",
     "??ABC?DE??",
     "C?ABC{DEF?Z",
+    "C?????????Z",
 ]
 
 for s in samples:

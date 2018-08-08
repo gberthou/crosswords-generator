@@ -79,6 +79,24 @@ class Dictionary
             return baseIndex + i;
         }
 
+        void NonMatchingIndices(const std::string &s, std::vector<size_t> &ret) const
+        {
+            size_t index = MIN_INDEX;
+            std::regex re(s, std::regex::extended);
+
+            ret.clear();
+
+            for(const auto &collection : collections)
+                for(const auto &word : collection)
+                {
+                    ++index;
+
+                    std::smatch m;
+                    if(!std::regex_match(word, m, re))
+                        ret.push_back(index);
+                }
+        }
+
         void TestRegex() const
         {
             try
