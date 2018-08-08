@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <vector>
+#include <set>
 #include <string>
 #include <sstream>
 #include <regex>
@@ -66,11 +67,10 @@ class PropRegex : public Gecode::Propagator
                 if(!at_least_one_assigned(itBegin, itEnd, 1))
                     continue;
 
-                std::vector<std::string> patterns;
-                regex_first(itBegin, itEnd, 1, patterns);
-
-                for(const auto &pattern : patterns)
+                std::string pattern = regex_first(itBegin, itEnd, 1);
+                if(pattern.size())
                 {
+                    std::cout << pattern << std::endl;
                     std::vector<size_t> indicesToRemove;
                     dictionary.NonMatchingIndices(pattern, indicesToRemove);
                     for(int i : indicesToRemove)
@@ -176,9 +176,23 @@ class PropRegex : public Gecode::Propagator
             return std::regex_replace(r, re, ".*");
         }
 
+        static std::string join_regex(const std::set<std::string> &re)
+        {
+            std::string ret = "";
+            size_t i = 0;
+            for(const auto &r : re)
+            {
+                ret += r;
+                if(i+1 != re.size())
+                    ret += '|';
+                ++i;
+            }
+            return ret;
+        }
+
         static void black_tiles(const VIntView::const_iterator &b, const VIntView::const_iterator &e, size_t increment, std::vector<size_t> &positions)
         {
-            auto c = b + 2;
+            auto c = b + (2*increment);
             positions.clear();
 
             for(auto it = c; it != e; it += increment)
@@ -186,34 +200,51 @@ class PropRegex : public Gecode::Propagator
                     positions.push_back(it - b);
         }
 
-        static void regex_first(const VIntView::const_iterator &b, const VIntView::const_iterator &e, size_t increment, std::vector<std::string> &ret)
+        static void unassigned(const VIntView::const_iterator &b, const VIntView::const_iterator &e, size_t increment, std::vector<size_t> &positions)
         {
-            std::vector<size_t> blackPositions;
-            auto stop = e;
-            auto secondLetter = b+increment;
+            auto c = b + (2*increment);
+            positions.clear();
 
-            ret.clear();
+            for(auto it = c; it != e; it += increment)
+                if(!it->assigned())
+                    positions.push_back(it - b);
+        }
+
+        static std::string regex_first(const VIntView::const_iterator &b, const VIntView::const_iterator &e, size_t increment)
+        {
+            std::set<std::string> patterns;
+            std::vector<size_t> blackPositions;
+            std::vector<size_t> stopPositions(1);
+            size_t stopIndex = e - b;
+            auto secondLetter = b+increment;
 
             black_tiles(b, e, increment, blackPositions);
 
             if(blackPositions.size())
-                stop = b + blackPositions[0];
+                stopIndex = blackPositions[0];
 
-            if(secondLetter->assigned())
+            stopPositions[0] = stopIndex;
+            unassigned(b, b + (stopIndex * increment), increment, stopPositions);
+
+            for(size_t i = 0; i < 2; ++i)
             {
-                auto start = b + (secondLetter->val() == '{' ? (2*increment) : 0);
-                std::string r = letters2regex(start, stop, increment);
-                ret.push_back(process_regex_first(r));
-            }
-            else
-            {
-                for(size_t i = 0; i < 2; ++i)
+                size_t start = i*2;
+                if(secondLetter->assigned())
                 {
-                    auto start = b + (2*i*increment);
-                    std::string r = letters2regex(start, stop, increment);
-                    ret.push_back(process_regex_first(r));
+                    if((secondLetter->val() == '{' && start != 2)
+                    || start != 0)
+                        continue;
+                }
+
+                for(size_t stop : stopPositions)
+                {
+                    std::string r = letters2regex(b + start, b + stop, increment);
+                    if(r.size())
+                        patterns.insert(process_regex_first(r));
                 }
             }
+            
+            return join_regex(patterns);
         }
 
         const Dictionary &dictionary;
