@@ -8,6 +8,8 @@
 #include <set>
 #include <regex>
 
+#include <gecode/int.hh>
+
 const size_t MIN_INDEX = 256;
 
 class Dictionary
@@ -79,22 +81,33 @@ class Dictionary
             return baseIndex + i;
         }
 
-        void NonMatchingIndices(const std::string &s, std::vector<size_t> &ret) const
+        void MatchingIndices(const Gecode::Int::IntView &view, const std::string &s, std::vector<size_t> &ret) const
         {
-            size_t index = MIN_INDEX;
             std::regex re(s, std::regex::extended);
 
             ret.clear();
 
-            for(const auto &collection : collections)
-                for(const auto &word : collection)
+            for(Gecode::Int::ViewRanges<Gecode::Int::IntView> i(view); i(); ++i)
+            {
+                auto collectionIt = collections.cbegin();
+                auto wordIt = collectionIt->cbegin();
+                int index = MIN_INDEX;
+
+                for(int j = i.min(); j <= i.max(); ++j)
                 {
-                    ++index;
+                    while(j > index + static_cast<int>(collectionIt->size()))
+                    {
+                        index += collectionIt->size();
+                        wordIt = (++collectionIt)->cbegin();
+                    }
 
                     std::smatch m;
-                    if(!std::regex_match(word, m, re))
+                    if(std::regex_match(*wordIt, m, re))
                         ret.push_back(index);
+
+                    ++wordIt;
                 }
+            }
         }
 
         void TestRegex() const

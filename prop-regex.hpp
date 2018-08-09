@@ -1,5 +1,5 @@
-#ifndef PROP_REGEX_H
-#define PROP_REGEX_H
+#ifndef PROP_REGEX_HPP
+#define PROP_REGEX_HPP
 
 #include <iostream>
 #include <vector>
@@ -11,6 +11,7 @@
 #include <gecode/int.hh>
 
 #include "dictionary.hpp"
+#include "helper.hpp"
 
 typedef std::vector<Gecode::Int::IntView> VIntView;
 
@@ -70,13 +71,22 @@ class PropRegex : public Gecode::Propagator
                 std::string pattern = regex_first(itBegin, itEnd, 1);
                 if(pattern.size())
                 {
-                    std::cout << pattern << std::endl;
-                    std::vector<size_t> indicesToRemove;
-                    dictionary.NonMatchingIndices(pattern, indicesToRemove);
+                    std::vector<size_t> indicesToKeep;
+                    dictionary.MatchingIndices(vh[y-1], pattern, indicesToKeep);
+
+                    // TODO: Add index 0 if second word and 0 belongs to domain
+
+                    FakeView fv(indicesToKeep);
+                    vh[y-1].narrow_v(home, fv);
+
+                    std::cout << '[' << y << "] " << indicesToKeep.size() << std::endl;
+
+                    /*
                     for(int i : indicesToRemove)
                     {
                         GECODE_ME_CHECK(vh[y-1].nq(home, i));
                     }
+                    */
                 }
             }
 
