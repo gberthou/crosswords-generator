@@ -6,6 +6,7 @@
 
 #include "dictionary.hpp"
 #include "dfa.hpp"
+#include "ui.hpp"
 
 using namespace Gecode;
 
@@ -224,6 +225,9 @@ class Crosswords: public Script
 
 int main(void)
 {
+    UI ui(WIDTH, HEIGHT);
+    ui.loop();
+    return 0;
     dictionary.AddMandatoryWords("mandatory", HEIGHT, mandatoryIndices);
 
     DictionaryDFA dictDFA(dictionary, WIDTH, HEIGHT);

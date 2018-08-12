@@ -9,7 +9,7 @@ INCDIR=-I"."
 CFLAGS=-std=c++17 -Wall -Wextra -Werror -pedantic -O2 -g
 
 DEFINES=
-LIBS=-lgecodekernel -lgecodesearch -lgecodeint -lgecodeminimodel -lgecodesupport -lgecodedriver -lgecodegist
+LIBS=-lncurses -lgecodekernel -lgecodesearch -lgecodeint -lgecodeminimodel -lgecodesupport -lgecodedriver -lgecodegist
 
 CPPFILES=$(wildcard *.cpp)
 
