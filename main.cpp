@@ -24,10 +24,10 @@ static DFA * dfa_secondV;
 class Crosswords: public Script
 {
     public:
-        explicit Crosswords(const SizeOptions &opt):
+        Crosswords(const SizeOptions &opt, size_t width, size_t height):
             Script(opt),
-            width(opt.size() & 0xff),
-            height((opt.size() >> 8) & 0xff),
+            width(width),
+            height(height),
 
             letters(*this, width * height, 'a', 'z'+1), // Letters go from 'a' to 'z', and black tile is 'z'+1 ('{')
 
@@ -48,7 +48,7 @@ class Crosswords: public Script
             wordLen1V(*this, width-2, 2, height)
         {
             // Fewer black tiles than X
-            //count(*this, letters, 'z'+1, IRT_LQ, 10); // <= 10
+            count(*this, letters, 'z'+1, IRT_LQ, 10); // <= 10
 
             auto allIndices = indBH+indBV+ind1H+ind2H+ind1V+ind2V;
 
@@ -240,14 +240,9 @@ int main(void)
     std::cout << "DFA conversion done!" << std::endl;
 
     SizeOptions opt("Crosswords");
-    opt.size((HEIGHT<<8) | WIDTH);
     opt.solutions(0);
 
-#if 0
-    opt.threads(4);
-    Script::run<Crosswords, DFS, SizeOptions>(opt);
-#else
-    Crosswords model(opt);
+    Crosswords model(opt, WIDTH, HEIGHT);
     Search::Options o;
     Search::Cutoff *c = Search::Cutoff::constant(200000);
     o.cutoff = c;
@@ -255,7 +250,6 @@ int main(void)
     RBS<Crosswords, DFS> e(&model, o);
     while(auto *p = e.next())
         p->print(std::cout);
-#endif
 
     delete dfa_borderH;
     delete dfa_borderV;
