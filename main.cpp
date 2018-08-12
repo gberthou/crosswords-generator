@@ -48,7 +48,7 @@ class Crosswords: public Script
             wordLen1V(*this, width-2, 2, height)
         {
             // Fewer black tiles than X
-            count(*this, letters, 'z'+1, IRT_LQ, 10); // <= 10
+            //count(*this, letters, 'z'+1, IRT_LQ, 10); // <= 10
 
             auto allIndices = indBH+indBV+ind1H+ind2H+ind1V+ind2V;
 
@@ -102,7 +102,10 @@ class Crosswords: public Script
             }
 
             if(!mandatoryIndices.size())
-                branch(*this, allIndices, INT_VAR_NONE(), INT_VAL_RND(std::time(nullptr)));
+            {
+                branch(*this, indBH+indBV+ind1H+ind1V, INT_VAR_SIZE_MIN(), INT_VAL_RND(std::time(nullptr)));
+                branch(*this, ind2H+ind2V, INT_VAR_NONE(), INT_VAL_RND(std::time(nullptr)));
+            }
             else
             {
                 Rnd rnd(std::time(nullptr));
@@ -140,7 +143,9 @@ class Crosswords: public Script
                     // If program reaches this part, mandatory indices were unavailable (either none were specified, or are assigned to other words)
                     return randomIndex;
                 };
-                branch(*this, allIndices, INT_VAR_NONE(), INT_VAL(indexValBrancher));
+
+                branch(*this, indBH+indBV+ind1H+ind1V, INT_VAR_SIZE_MIN(), INT_VAL_RND(std::time(nullptr)));
+                branch(*this, ind2H+ind2V, INT_VAR_NONE(), INT_VAL_RND(std::time(nullptr)));
             }
 
             branch(*this, wordPos1H+wordPos1V, INT_VAR_NONE(), INT_VAL_MIN());
