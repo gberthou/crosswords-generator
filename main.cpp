@@ -103,8 +103,9 @@ class Crosswords: public Script
 
             if(!mandatoryIndices.size())
             {
-                branch(*this, indBH+indBV+ind1H+ind1V, INT_VAR_SIZE_MIN(), INT_VAL_RND(std::time(nullptr)));
-                branch(*this, ind2H+ind2V, INT_VAR_NONE(), INT_VAL_RND(std::time(nullptr)));
+                auto seed = std::time(nullptr);
+                branch(*this, indBH+indBV+ind1H+ind1V, INT_VAR_SIZE_MIN(), INT_VAL_RND(seed));
+                branch(*this, ind2H+ind2V, INT_VAR_NONE(), INT_VAL_RND(seed));
             }
             else
             {
@@ -128,13 +129,12 @@ class Crosswords: public Script
                                 return index;
 
                         // (Copy-pasted from original Gecode ValSelRnd<View>::val(...))
+                        if(randomAssigned)
+                            continue;
                         if (i.width() > p)
                         {
-                            if(!randomAssigned)
-                            {
-                                randomIndex = i.min() + static_cast<int>(p);
-                                randomAssigned = true;
-                            }
+                            randomIndex = i.min() + static_cast<int>(p);
+                            randomAssigned = true;
                         }
                         else
                             p -= i.width();
@@ -144,8 +144,8 @@ class Crosswords: public Script
                     return randomIndex;
                 };
 
-                branch(*this, indBH+indBV+ind1H+ind1V, INT_VAR_SIZE_MIN(), INT_VAL_RND(std::time(nullptr)));
-                branch(*this, ind2H+ind2V, INT_VAR_NONE(), INT_VAL_RND(std::time(nullptr)));
+                branch(*this, indBH+indBV+ind1H+ind1V, INT_VAR_SIZE_MIN(), INT_VAL(indexValBrancher));
+                branch(*this, ind2H+ind2V, INT_VAR_NONE(), INT_VAL(indexValBrancher));
             }
 
             branch(*this, wordPos1H+wordPos1V, INT_VAR_NONE(), INT_VAL_MIN());
