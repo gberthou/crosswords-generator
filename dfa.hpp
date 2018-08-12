@@ -1,7 +1,6 @@
 #ifndef DFA_HPP
 #define DFA_HPP
 
-#include <iostream>
 #include <vector>
 #include <map>
 
@@ -223,8 +222,6 @@ class DictionaryDFA
         DictionaryDFA(const Dictionary &dict, size_t width, size_t height):
             dictionary(dict)
         {
-            std::cout << "DFA initialization..." << std::endl;
-
             // Border H
             borderH.MakeBorder(dict, width);
 
@@ -238,8 +235,6 @@ class DictionaryDFA
             // Second H/V
             secondH.MakeSecond(dict, width);
             secondV.MakeSecond(dict, height);
-
-            std::cout << "DFA initialized!" << std::endl;
         }
 
         Gecode::DFA *BorderH() const

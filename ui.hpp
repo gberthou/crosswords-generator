@@ -2,7 +2,12 @@
 #define UI_HPP
 
 #include <vector>
+#include <string>
+#include <regex>
+
 #include <ncurses.h>
+
+#include "crosswords.hpp"
 
 enum UI_State
 {
@@ -58,9 +63,46 @@ class UI
         }
 
     protected:
-        char &current_letter()
+        int &current_letter()
         {
             return letters[cursorX + cursorY * width];
+        }
+
+        static void extract_words_line(std::vector<std::string> &words, std::string line)
+        {
+            std::regex r1("^([a-z]+)$|^([a-z]{2,})#|#([a-z]{2,})#|#([a-z]{2,})$");
+            std::regex r2("[a-z]+");
+            std::smatch match;
+
+            while(std::regex_search(line, match, r1))
+            {
+                std::smatch m;
+                std::string tmp = match.str();
+                std::regex_search(tmp, m, r2);
+
+                words.push_back(m.str());
+                line = match.suffix();
+            }
+        }
+
+        void extract_words(std::vector<std::string> &words) const
+        {
+            words.clear();
+            for(size_t y = 0; y < height; ++y)
+            {
+                std::string s("");
+                for(size_t x = 0; x < width; ++x)
+                    s += letters[x + y * width];
+                extract_words_line(words, s);
+            }
+
+            for(size_t x = 0; x < width; ++x)
+            {
+                std::string s("");
+                for(size_t y = 0; y < height; ++y)
+                    s += letters[x + y * width];
+                extract_words_line(words, s);
+            }
         }
 
         void color(bool enable) const
@@ -89,7 +131,7 @@ class UI
 
         void display() const
         {
-            std::vector<char>::const_iterator it = letters.begin();
+            std::vector<int>::const_iterator it = letters.begin();
 
             for(size_t y = 0; y < height; ++y)
             {
@@ -180,10 +222,25 @@ class UI
                             current_letter() = '.';
                             break;
 
+                        case ' ':
+                            current_letter() = '#';
+                            break;
+
                         case 's':
                         case 'S':
-                            // TODO Solve
+                        {
+                                std::vector<std::string> words;
+                                extract_words(words);
+                                if(Crosswords::solve(width, height, letters, words))
+                                {
+                                    std::cout << "Found!" << std::endl;
+                                }
+                                else
+                                {
+                                    std::cout << "Not found..." << std::endl;
+                                }
                             break;
+                        }
 
                         case KEY_LEFT:
                             if(cursorX)
@@ -219,7 +276,7 @@ class UI
         size_t selectFrom;
         UI_State state;
 
-        std::vector<char> letters;
+        std::vector<int> letters;
 };
 
 #endif

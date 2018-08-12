@@ -25,6 +25,13 @@ class Dictionary
             }
         }
 
+        void AddWords(const std::vector<std::string> &words, size_t maxlen)
+        {
+            for(const auto &word : words)
+                if(word.size() >= 2 && word.size() <= maxlen)
+                    collections[word.size()-2].insert(word);
+        }
+
         void AddMandatoryWords(const std::string &filename, size_t maxlen, std::set<int> &indices)
         {
             std::vector<std::string> tosearch;
