@@ -227,7 +227,14 @@ class Crosswords: public Script
             os << std::endl;
         }
 
-        static bool solve(size_t width, size_t height, const std::vector<int> &letters, const std::vector<std::string> &wordsToAdd)
+        void extract(std::vector<int> &out) const
+        {
+            size_t i = 0;
+            for(const auto &l : letters)
+                out[i++] = l.val();
+        }
+
+        static bool solve(size_t width, size_t height, std::vector<int> &letters, const std::vector<std::string> &wordsToAdd)
         {
             size_t maxdim = (width > height ? width : height);
 
@@ -246,8 +253,7 @@ class Crosswords: public Script
             bool ret = false;
             if(auto *p = e.next())
             {
-                // TODO
-                (void) p;
+                p->extract(letters);
                 ret = true;
             }
 

@@ -233,11 +233,9 @@ class UI
                                 extract_words(words);
                                 if(Crosswords::solve(width, height, letters, words))
                                 {
-                                    std::cout << "Found!" << std::endl;
                                 }
                                 else
                                 {
-                                    std::cout << "Not found..." << std::endl;
                                 }
                             break;
                         }
