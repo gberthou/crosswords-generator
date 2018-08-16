@@ -1,5 +1,6 @@
 #include <iostream>
 #include <ctime>
+#include <vector>
 
 #include <gecode/driver.hh>
 #include <gecode/int.hh>
@@ -12,7 +13,7 @@ using namespace Gecode;
 const size_t WIDTH = 9;
 const size_t HEIGHT = 11;
 static Dictionary dictionary("dict", HEIGHT);
-std::set<int> mandatoryIndices;
+std::vector<int> mandatoryIndices;
 
 static DFA * dfa_borderH;
 static DFA * dfa_borderV;
@@ -72,8 +73,11 @@ class Crosswords: public Script
             extensional(*this, rightborderV, *dfa_borderV);
 
             // Impose mandatory words
-            for(int indice : mandatoryIndices)
-                count(*this, allIndices, indice, IRT_EQ, 1);
+            if(mandatoryIndices.size())
+            {
+                IntSet args(mandatoryIndices.data(), mandatoryIndices.size());
+                count(*this, allIndices, args, IRT_EQ, mandatoryIndices.size());
+            }
 
             // Horizontal words
             for(size_t y = 1; y < height-1; ++y)
@@ -101,52 +105,9 @@ class Crosswords: public Script
                 rel(*this, wordPos2V[x-1] == wordPos1V[x-1] + wordLen1V[x-1] + 1);
             }
 
-            if(!mandatoryIndices.size())
-            {
-                auto seed = std::time(nullptr);
-                branch(*this, indBH+indBV+ind1H+ind1V, INT_VAR_SIZE_MIN(), INT_VAL_RND(seed));
-                branch(*this, ind2H+ind2V, INT_VAR_NONE(), INT_VAL_RND(seed));
-            }
-            else
-            {
-                Rnd rnd(std::time(nullptr));
-                auto indexValBrancher = [rnd](const Space &, IntVar x, int) mutable {
-                    // Principle: try mandatory words first if they belong to x's domain.
-                    // Otherwise, use random selection within domain.
-
-                    // Random generator gets altered regardless of mandatory words being selected or not.
-                    unsigned int p = rnd(x.size());
-                    int randomIndex;
-                    bool randomAssigned = false;
-
-                    for(Int::ViewRanges<Int::IntView> i(x); i(); ++i)
-                    {
-                        int min = i.min();
-                        int max = i.max();
-
-                        for(int index : mandatoryIndices)
-                            if(index >= min && index <= max)
-                                return index;
-
-                        // (Copy-pasted from original Gecode ValSelRnd<View>::val(...))
-                        if(randomAssigned)
-                            continue;
-                        if (i.width() > p)
-                        {
-                            randomIndex = i.min() + static_cast<int>(p);
-                            randomAssigned = true;
-                        }
-                        else
-                            p -= i.width();
-                    }
-
-                    // If program reaches this part, mandatory indices were unavailable (either none were specified, or are assigned to other words)
-                    return randomIndex;
-                };
-
-                branch(*this, indBH+indBV+ind1H+ind1V, INT_VAR_SIZE_MIN(), INT_VAL(indexValBrancher));
-                branch(*this, ind2H+ind2V, INT_VAR_NONE(), INT_VAL(indexValBrancher));
-            }
+            auto seed = std::time(nullptr);
+            branch(*this, indBH+indBV+ind1H+ind1V, INT_VAR_SIZE_MIN(), INT_VAL_RND(seed));
+            branch(*this, ind2H+ind2V, INT_VAR_NONE(), INT_VAL_RND(seed));
 
             branch(*this, wordPos1H+wordPos1V, INT_VAR_NONE(), INT_VAL_MIN());
         }

@@ -25,7 +25,7 @@ class Dictionary
             }
         }
 
-        void AddMandatoryWords(const std::string &filename, size_t maxlen, std::set<int> &indices)
+        void AddMandatoryWords(const std::string &filename, size_t maxlen, std::vector<int> &indices)
         {
             std::vector<std::string> tosearch;
 
@@ -43,7 +43,7 @@ class Dictionary
 
             indices.clear();
             for(const auto &s : tosearch)
-                indices.insert(IndexOfWord(s));
+                indices.push_back(IndexOfWord(s));
         }
 
         int FirstIndexOfLength(size_t length) const
