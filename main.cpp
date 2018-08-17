@@ -7,6 +7,7 @@
 
 #include "dictionary.hpp"
 #include "dfa.hpp"
+#include "prop-mandatory.hpp"
 
 using namespace Gecode;
 
@@ -51,7 +52,7 @@ class Crosswords: public Script
             // Fewer black tiles than X
             count(*this, letters, 'z'+1, IRT_LQ, 10); // <= 10
 
-            auto allIndices = indBH+indBV+ind1H+ind2H+ind1V+ind2V;
+            auto allIndices = indBH+indBV+ind1H+ind1V+ind2H+ind2V;
 
             distinct(*this, allIndices, MIN_INDEX);
 
@@ -74,10 +75,7 @@ class Crosswords: public Script
 
             // Impose mandatory words
             if(mandatoryIndices.size())
-            {
-                IntSet args(mandatoryIndices.data(), mandatoryIndices.size());
-                count(*this, allIndices, args, IRT_EQ, mandatoryIndices.size());
-            }
+                PropMandatory::propmandatory(*this, mandatoryIndices, allIndices);
 
             // Horizontal words
             for(size_t y = 1; y < height-1; ++y)
