@@ -34,7 +34,7 @@ class PropMandatory : public Gecode::Propagator
             // Not optimized af, but you know...
             
             // Too many memory operations
-            std::vector<std::vector<Gecode::Int::IntView> > wordPresent(indices.size());
+            std::vector<std::vector<Gecode::Int::IntView*> > wordPresent(indices.size());
 
             for(auto &view : vindices)
             {
@@ -44,7 +44,7 @@ class PropMandatory : public Gecode::Propagator
                     for(size_t i = 0; i < indices.size(); ++i)
                         if(val == indices[i])
                         {
-                            wordPresent[i].push_back(view);
+                            wordPresent[i].push_back(&view);
                             break;
                         }
                 }
@@ -59,7 +59,7 @@ class PropMandatory : public Gecode::Propagator
                         {
                             int indice = indices[i];
                             if(indice >= min && indice <= max)
-                                wordPresent[i].push_back(view);
+                                wordPresent[i].push_back(&view);
                         }
                     }
                 }
@@ -73,9 +73,20 @@ class PropMandatory : public Gecode::Propagator
 
                 if(size == 0)
                     return Gecode::ES_FAILED;
-                if(size == 1)
-                    GECODE_ME_CHECK(wp[0].eq(home, indices[i]));
-                else
+                if(size == 1 && !wp[0]->assigned())
+                {
+                    GECODE_ME_CHECK(wp[0]->eq(home, indices[i]));
+                    for(size_t j = i+1; j < indices.size(); ++j)
+                    {
+                        auto &wpj = wordPresent[j];
+                        auto it = wpj.begin();
+                        while(it != wpj.end() && *it != wp[0])
+                            ++it;
+                        if(it != wpj.end())
+                            wpj.erase(it);
+                    }
+                }
+                else if(size > 1)
                     subsumed = false;
             }
 
