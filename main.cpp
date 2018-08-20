@@ -2,6 +2,8 @@
 #include <ctime>
 #include <vector>
 #include <algorithm>
+#include <thread>
+#include <mutex>
 
 #include <gecode/driver.hh>
 #include <gecode/int.hh>
@@ -241,6 +243,57 @@ bool permutation_valid(size_t width, size_t height, const std::vector<int> &indi
     return true;
 }
 
+void run_single(size_t nthreads, std::vector<int> indices = std::vector<int>())
+{
+    static std::mutex cout_mutex;
+
+    SizeOptions opt("Crosswords");
+    opt.solutions(0);
+
+    Crosswords model(opt, WIDTH, HEIGHT, indices);
+    Search::Options o;
+    Search::Cutoff *c = Search::Cutoff::constant(200000);
+    o.cutoff = c;
+    o.threads = nthreads;
+    RBS<Crosswords, DFS> e(&model, o);
+    if(auto *p = e.next())
+    {
+        cout_mutex.lock();
+        p->print(std::cout);
+        cout_mutex.unlock();
+    }
+}
+
+void run_single_mandatory(std::vector<int> indices)
+{
+    if(!permutation_valid(WIDTH, HEIGHT, indices))
+        return;
+    run_single(1, indices);
+}
+
+void run_concurrently(std::vector<int> indices, size_t nthreads)
+{
+    std::vector<std::vector<int> > pool(nthreads);
+
+    size_t i = 0;
+    do
+    {
+        std::cout << i << std::endl;
+
+        pool[i % nthreads] = indices;
+        if(i && (i % nthreads) == 0)
+        {
+            std::vector<std::thread> threads;
+            for(size_t j = 0; j < nthreads; ++j)
+                threads.emplace_back(run_single_mandatory, pool[j]);
+            for(auto &thread : threads)
+                thread.join();
+        }
+
+        ++i;
+    } while(std::prev_permutation(indices.begin(), indices.end()));
+}
+
 int main(void)
 {
     std::vector<int> mandatoryIndices;
@@ -259,9 +312,6 @@ int main(void)
 
     std::cout << "DFA conversion done!" << std::endl;
 
-    SizeOptions opt("Crosswords");
-    opt.solutions(0);
-
     if(mandatoryIndices.size())
     {
         size_t wordCount = 4 // Borders
@@ -275,34 +325,10 @@ int main(void)
         std::copy(mandatoryIndices.begin(), mandatoryIndices.end(), indices.begin());
         std::sort(indices.begin(), indices.end(), std::greater<int>());
 
-        Search::Options o;
-        Search::Cutoff *c = Search::Cutoff::constant(200000);
-        o.cutoff = c;
-        o.threads = 4;
-        size_t i = 0;
-        do
-        {
-            std::cout << i++ << std::endl;
-            if(!permutation_valid(WIDTH, HEIGHT, indices))
-                continue;
-
-            Crosswords model(opt, WIDTH, HEIGHT, indices);
-            RBS<Crosswords, DFS> e(&model, o);
-            if(auto *p = e.next())
-                p->print(std::cout);
-        } while(std::prev_permutation(indices.begin(), indices.end()));
+        run_concurrently(indices, 4);
     }
     else
-    {
-        Crosswords model(opt, WIDTH, HEIGHT);
-        Search::Options o;
-        Search::Cutoff *c = Search::Cutoff::constant(200000);
-        o.cutoff = c;
-        o.threads = 4;
-        RBS<Crosswords, DFS> e(&model, o);
-        while(auto *p = e.next())
-            p->print(std::cout);
-    }
+        run_single(4);
 
     delete dfa_borderH;
     delete dfa_borderV;
