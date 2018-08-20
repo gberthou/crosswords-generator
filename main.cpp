@@ -1,6 +1,7 @@
 #include <iostream>
 #include <ctime>
 #include <vector>
+#include <algorithm>
 
 #include <gecode/driver.hh>
 #include <gecode/int.hh>
@@ -13,7 +14,6 @@ using namespace Gecode;
 const size_t WIDTH = 9;
 const size_t HEIGHT = 11;
 static Dictionary dictionary("dict", HEIGHT);
-std::vector<int> mandatoryIndices;
 
 static DFA * dfa_borderH;
 static DFA * dfa_borderV;
@@ -25,7 +25,7 @@ static DFA * dfa_secondV;
 class Crosswords: public Script
 {
     public:
-        Crosswords(const SizeOptions &opt, size_t width, size_t height):
+        Crosswords(const SizeOptions &opt, size_t width, size_t height, const std::vector<int> &orderedMandatory = std::vector<int>()):
             Script(opt),
             width(width),
             height(height),
@@ -73,10 +73,11 @@ class Crosswords: public Script
             extensional(*this, rightborderV, *dfa_borderV);
 
             // Impose mandatory words
-            if(mandatoryIndices.size())
+            for(size_t i = 0; i < orderedMandatory.size(); ++i)
             {
-                IntSet args(mandatoryIndices.data(), mandatoryIndices.size());
-                count(*this, allIndices, args, IRT_EQ, mandatoryIndices.size());
+                int index = orderedMandatory[i];
+                if(index)
+                    rel(*this, allIndices[i], IRT_EQ, index);
             }
 
             // Horizontal words
@@ -185,6 +186,7 @@ class Crosswords: public Script
 
 int main(void)
 {
+    std::vector<int> mandatoryIndices;
     dictionary.AddMandatoryWords("mandatory", HEIGHT, mandatoryIndices);
 
     DictionaryDFA dictDFA(dictionary, WIDTH, HEIGHT);
@@ -203,14 +205,44 @@ int main(void)
     SizeOptions opt("Crosswords");
     opt.solutions(0);
 
-    Crosswords model(opt, WIDTH, HEIGHT);
-    Search::Options o;
-    Search::Cutoff *c = Search::Cutoff::constant(200000);
-    o.cutoff = c;
-    o.threads = 4;
-    RBS<Crosswords, DFS> e(&model, o);
-    while(auto *p = e.next())
-        p->print(std::cout);
+    if(mandatoryIndices.size())
+    {
+        size_t wordCount = 4 // Borders
+                         + 2*(WIDTH+HEIGHT-4); // 2 words per col/row
+        if(mandatoryIndices.size() > wordCount)
+        {
+            // TODO Error
+        }
+
+        std::vector<int> indices(wordCount, 0);
+        std::copy(mandatoryIndices.begin(), mandatoryIndices.end(), indices.begin());
+        std::sort(indices.begin(), indices.end());
+
+        size_t i = 0;
+        do
+        {
+            std::cout << i++ << std::endl;
+            Crosswords model(opt, WIDTH, HEIGHT, indices);
+            Search::Options o;
+            Search::Cutoff *c = Search::Cutoff::constant(200000);
+            o.cutoff = c;
+            o.threads = 4;
+            RBS<Crosswords, DFS> e(&model, o);
+            if(auto *p = e.next())
+                p->print(std::cout);
+        } while(std::next_permutation(indices.begin(), indices.end()));
+    }
+    else
+    {
+        Crosswords model(opt, WIDTH, HEIGHT);
+        Search::Options o;
+        Search::Cutoff *c = Search::Cutoff::constant(200000);
+        o.cutoff = c;
+        o.threads = 4;
+        RBS<Crosswords, DFS> e(&model, o);
+        while(auto *p = e.next())
+            p->print(std::cout);
+    }
 
     delete dfa_borderH;
     delete dfa_borderV;
