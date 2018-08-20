@@ -184,6 +184,63 @@ class Crosswords: public Script
         IntVarArray wordLen1V;
 };
 
+bool permutation_valid(size_t width, size_t height, const std::vector<int> &indices)
+{
+    // Assumes order: indBH(2) + indBV(2) + ind1H(H-2) + ind2H(H-2)
+    //              + ind1V(W-2) + ind2V(W-2);
+
+    for(size_t i = 0; i < indices.size(); ++i)
+    {
+        int index = indices[i];
+        if(index)
+        {
+            std::string word = dictionary.GetWord(index);
+            size_t size = word.size();
+
+            if(i < 2)
+            {
+                if(size != width)
+                    return false;
+            }
+            else if(i < 4)
+            {
+                if(size != height)
+                    return false;
+            }
+            else if(i < 2 + height)
+            {
+                if(size > width)
+                    return false;
+                
+                int other = indices[i + height - 2];
+                if(other && size+dictionary.GetWord(other).size()+1 > width)
+                    return false;
+            }
+            else if(i < 2*height)
+            {
+                if(size + 3 > width)
+                    return false;
+            }
+            else if(i < 2*height + width - 2)
+            {
+                if(size > height)
+                    return false;
+                
+                int other = indices[i + width - 2];
+                if(other && size+dictionary.GetWord(other).size()+1 > height)
+                    return false;
+            }
+            else // i < 2*(width+height-2)
+            {
+                if(size + 3 > height)
+                    return false;
+            }
+        }
+    }
+    
+    return true;
+}
+
 int main(void)
 {
     std::vector<int> mandatoryIndices;
@@ -216,21 +273,24 @@ int main(void)
 
         std::vector<int> indices(wordCount, 0);
         std::copy(mandatoryIndices.begin(), mandatoryIndices.end(), indices.begin());
-        std::sort(indices.begin(), indices.end());
+        std::sort(indices.begin(), indices.end(), std::greater<int>());
 
+        Search::Options o;
+        Search::Cutoff *c = Search::Cutoff::constant(200000);
+        o.cutoff = c;
+        o.threads = 4;
         size_t i = 0;
         do
         {
             std::cout << i++ << std::endl;
+            if(!permutation_valid(WIDTH, HEIGHT, indices))
+                continue;
+
             Crosswords model(opt, WIDTH, HEIGHT, indices);
-            Search::Options o;
-            Search::Cutoff *c = Search::Cutoff::constant(200000);
-            o.cutoff = c;
-            o.threads = 4;
             RBS<Crosswords, DFS> e(&model, o);
             if(auto *p = e.next())
                 p->print(std::cout);
-        } while(std::next_permutation(indices.begin(), indices.end()));
+        } while(std::prev_permutation(indices.begin(), indices.end()));
     }
     else
     {

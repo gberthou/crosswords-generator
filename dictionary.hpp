@@ -77,6 +77,20 @@ class Dictionary
             return baseIndex + i;
         }
 
+        std::string GetWord(size_t index) const
+        {
+            size_t ind = MIN_INDEX;
+            size_t i = 0;
+
+            while(ind + collections[i].size() < index)
+                ind += collections[i++].size();
+
+            auto it = collections[i].begin();
+            for(size_t j = ind+1; j < index; ++j)
+                ++it;
+            return *it;
+        }
+
     protected:
         std::vector<std::set<std::string> > collections;
 };
