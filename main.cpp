@@ -24,6 +24,8 @@ static DFA * dfa_firstV;
 static DFA * dfa_secondH;
 static DFA * dfa_secondV;
 
+static std::mutex cout_mutex;
+
 class Crosswords: public Script
 {
     public:
@@ -245,14 +247,13 @@ bool permutation_valid(size_t width, size_t height, const std::vector<int> &indi
 
 void run_single(size_t nthreads, std::vector<int> indices = std::vector<int>())
 {
-    static std::mutex cout_mutex;
 
     SizeOptions opt("Crosswords");
     opt.solutions(0);
 
     Crosswords model(opt, WIDTH, HEIGHT, indices);
     Search::Options o;
-    Search::Cutoff *c = Search::Cutoff::constant(200000);
+    Search::Cutoff *c = Search::Cutoff::constant(70000);
     o.cutoff = c;
     o.threads = nthreads;
     RBS<Crosswords, DFS> e(&model, o);
@@ -264,34 +265,45 @@ void run_single(size_t nthreads, std::vector<int> indices = std::vector<int>())
     }
 }
 
-void run_single_mandatory(std::vector<int> indices)
+void run_single_mandatory(const std::vector<int> &indices)
 {
     if(!permutation_valid(WIDTH, HEIGHT, indices))
         return;
     run_single(1, indices);
 }
 
-void run_concurrently(std::vector<int> indices, size_t nthreads)
+void run_concurrently(std::vector<int> indices, size_t nthreads, size_t id)
 {
-    std::vector<std::vector<int> > pool(nthreads);
-
     size_t i = 0;
     do
     {
-        std::cout << i << std::endl;
-
-        pool[i % nthreads] = indices;
-        if(i && (i % nthreads) == 0)
+        if((i%nthreads) != id)
         {
-            std::vector<std::thread> threads;
-            for(size_t j = 0; j < nthreads; ++j)
-                threads.emplace_back(run_single_mandatory, pool[j]);
-            for(auto &thread : threads)
-                thread.join();
+            ++i;
+            continue;
         }
 
+        if((i % 10) == id)
+        {
+            cout_mutex.lock();
+            std::cout << i << std::endl;
+            cout_mutex.unlock();
+        }
+
+        run_single_mandatory(indices);
         ++i;
     } while(std::prev_permutation(indices.begin(), indices.end()));
+}
+
+size_t permutation_count(size_t n, size_t k)
+{
+    size_t a = n-k;
+
+    size_t result = n--;
+    for(; n > a; --n)
+        result *= n;
+
+    return result;
 }
 
 int main(void)
@@ -321,11 +333,17 @@ int main(void)
             // TODO Error
         }
 
+        std::cout << permutation_count(wordCount, mandatoryIndices.size()) << " permutations" << std::endl;
+
         std::vector<int> indices(wordCount, 0);
         std::copy(mandatoryIndices.begin(), mandatoryIndices.end(), indices.begin());
         std::sort(indices.begin(), indices.end(), std::greater<int>());
 
-        run_concurrently(indices, 4);
+        std::vector<std::thread> pool;
+        for(size_t i = 0; i < 4; ++i)
+            pool.emplace_back(run_concurrently, indices, 4, i);
+        for(auto &thread : pool)
+            thread.join();
     }
     else
         run_single(4);
