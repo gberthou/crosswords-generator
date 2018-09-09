@@ -283,13 +283,6 @@ void run_concurrently(std::vector<int> indices, size_t nthreads, size_t id)
             continue;
         }
 
-        if((i % 10) == id)
-        {
-            cout_mutex.lock();
-            std::cout << i << std::endl;
-            cout_mutex.unlock();
-        }
-
         run_single_mandatory(indices);
         ++i;
     } while(std::prev_permutation(indices.begin(), indices.end()));
