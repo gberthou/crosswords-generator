@@ -1,6 +1,9 @@
 #include <iostream>
 #include <ctime>
 #include <vector>
+#include <algorithm>
+#include <thread>
+#include <mutex>
 
 #include <gecode/driver.hh>
 #include <gecode/int.hh>
@@ -13,7 +16,6 @@ using namespace Gecode;
 const size_t WIDTH = 9;
 const size_t HEIGHT = 11;
 static Dictionary dictionary("dict", HEIGHT);
-std::vector<int> mandatoryIndices;
 
 static DFA * dfa_borderH;
 static DFA * dfa_borderV;
@@ -22,10 +24,12 @@ static DFA * dfa_firstV;
 static DFA * dfa_secondH;
 static DFA * dfa_secondV;
 
+static std::mutex cout_mutex;
+
 class Crosswords: public Script
 {
     public:
-        Crosswords(const SizeOptions &opt, size_t width, size_t height):
+        Crosswords(const SizeOptions &opt, size_t width, size_t height, const std::vector<int> &orderedMandatory = std::vector<int>()):
             Script(opt),
             width(width),
             height(height),
@@ -73,10 +77,11 @@ class Crosswords: public Script
             extensional(*this, rightborderV, *dfa_borderV);
 
             // Impose mandatory words
-            if(mandatoryIndices.size())
+            for(size_t i = 0; i < orderedMandatory.size(); ++i)
             {
-                IntSet args(mandatoryIndices.data(), mandatoryIndices.size());
-                count(*this, allIndices, args, IRT_EQ, mandatoryIndices.size());
+                int index = orderedMandatory[i];
+                if(index)
+                    rel(*this, allIndices[i], IRT_EQ, index);
             }
 
             // Horizontal words
@@ -183,8 +188,120 @@ class Crosswords: public Script
         IntVarArray wordLen1V;
 };
 
+bool permutation_valid(size_t width, size_t height, const std::vector<int> &indices)
+{
+    // Assumes order: indBH(2) + indBV(2) + ind1H(H-2) + ind2H(H-2)
+    //              + ind1V(W-2) + ind2V(W-2);
+
+    for(size_t i = 0; i < indices.size(); ++i)
+    {
+        int index = indices[i];
+        if(index)
+        {
+            std::string word = dictionary.GetWord(index);
+            size_t size = word.size();
+
+            if(i < 2)
+            {
+                if(size != width)
+                    return false;
+            }
+            else if(i < 4)
+            {
+                if(size != height)
+                    return false;
+            }
+            else if(i < 2 + height)
+            {
+                if(size > width)
+                    return false;
+                
+                int other = indices[i + height - 2];
+                if(other && size+dictionary.GetWord(other).size()+1 > width)
+                    return false;
+            }
+            else if(i < 2*height)
+            {
+                if(size + 3 > width)
+                    return false;
+            }
+            else if(i < 2*height + width - 2)
+            {
+                if(size > height)
+                    return false;
+                
+                int other = indices[i + width - 2];
+                if(other && size+dictionary.GetWord(other).size()+1 > height)
+                    return false;
+            }
+            else // i < 2*(width+height-2)
+            {
+                if(size + 3 > height)
+                    return false;
+            }
+        }
+    }
+    
+    return true;
+}
+
+void run_single(size_t nthreads, std::vector<int> indices = std::vector<int>())
+{
+
+    SizeOptions opt("Crosswords");
+    opt.solutions(0);
+
+    Crosswords model(opt, WIDTH, HEIGHT, indices);
+    Search::Options o;
+    Search::Cutoff *c = Search::Cutoff::constant(70000);
+    o.cutoff = c;
+    o.threads = nthreads;
+    RBS<Crosswords, DFS> e(&model, o);
+    if(auto *p = e.next())
+    {
+        cout_mutex.lock();
+        p->print(std::cout);
+        cout_mutex.unlock();
+    }
+}
+
+void run_single_mandatory(const std::vector<int> &indices)
+{
+    if(!permutation_valid(WIDTH, HEIGHT, indices))
+        return;
+    run_single(1, indices);
+}
+
+void run_concurrently(std::vector<int> indices, size_t nthreads, size_t id)
+{
+    size_t i = 0;
+    do
+    {
+        if((i%nthreads) != id)
+        {
+            ++i;
+            continue;
+        }
+
+        run_single_mandatory(indices);
+        ++i;
+    } while(std::prev_permutation(indices.begin(), indices.end()));
+}
+
+size_t permutation_count(size_t n, size_t k)
+{
+    size_t a = n-k;
+
+    size_t result = n--;
+    for(; n > a; --n)
+        result *= n;
+
+    return result;
+}
+
 int main(void)
 {
+    std::vector<int> mandatoryIndices;
     dictionary.AddMandatoryWords("mandatory", HEIGHT, mandatoryIndices);
 
     DictionaryDFA dictDFA(dictionary, WIDTH, HEIGHT);
@@ -200,17 +317,29 @@ int main(void)
 
     std::cout << "DFA conversion done!" << std::endl;
 
-    SizeOptions opt("Crosswords");
-    opt.solutions(0);
+    if(mandatoryIndices.size())
+    {
+        size_t wordCount = 4 // Borders
+                         + 2*(WIDTH+HEIGHT-4); // 2 words per col/row
+        if(mandatoryIndices.size() > wordCount)
+        {
+            // TODO Error
+        }
 
-    Crosswords model(opt, WIDTH, HEIGHT);
-    Search::Options o;
-    Search::Cutoff *c = Search::Cutoff::constant(200000);
-    o.cutoff = c;
-    o.threads = 4;
-    RBS<Crosswords, DFS> e(&model, o);
-    while(auto *p = e.next())
-        p->print(std::cout);
+        std::cout << permutation_count(wordCount, mandatoryIndices.size()) << " permutations" << std::endl;
+
+        std::vector<int> indices(wordCount, 0);
+        std::copy(mandatoryIndices.begin(), mandatoryIndices.end(), indices.begin());
+        std::sort(indices.begin(), indices.end(), std::greater<int>());
+
+        std::vector<std::thread> pool;
+        for(size_t i = 0; i < 4; ++i)
+            pool.emplace_back(run_concurrently, indices, 4, i);
+        for(auto &thread : pool)
+            thread.join();
+    }
+    else
+        run_single(4);
 
     delete dfa_borderH;
     delete dfa_borderV;
