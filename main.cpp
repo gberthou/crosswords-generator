@@ -26,6 +26,52 @@ static DFA * dfa_secondV;
 
 static std::mutex cout_mutex;
 
+static size_t scrabble_french(char c)
+{
+    switch(c)
+    {
+        case 'a':
+        case 'e':
+        case 'i':
+        case 'l':
+        case 'n':
+        case 'o':
+        case 'r':
+        case 's':
+        case 't':
+        case 'u':
+            return 1;
+
+        case 'd':
+        case 'g':
+        case 'm':
+            return 2;
+
+        case 'b':
+        case 'c':
+        case 'p':
+            return 3;
+
+        case 'f':
+        case 'h':
+        case 'v':
+            return 4;
+
+        case 'j':
+        case 'q':
+            return 8;
+
+        case 'k':
+        case 'w':
+        case 'x':
+        case 'y':
+        case 'z':
+            return 10;
+
+    }
+    return 0;
+}
+
 class Crosswords: public Script
 {
     public:
@@ -53,7 +99,7 @@ class Crosswords: public Script
             wordLen1V(*this, width-2, 2, height)
         {
             // Fewer black tiles than X
-            count(*this, letters, 'z'+1, IRT_LQ, 10); // <= 10
+            //count(*this, letters, 'z'+1, IRT_LQ, 10); // <= 10
 
             auto allIndices = indBH+indBV+ind1H+ind2H+ind1V+ind2V;
 
@@ -146,6 +192,17 @@ class Crosswords: public Script
             return new Crosswords(*this);
         }
 
+        virtual void constrain(const Space &_base)
+        {
+            const Crosswords &base = static_cast<const Crosswords&>(_base);
+            size_t btc = base.black_tile_count();
+            size_t score = base.scrabble_score();
+
+            std::cout << "[" << btc << ", " << score << "]" << std::endl;
+            
+            count(*this, letters, 'z'+1, IRT_LE, btc);
+        }
+
         virtual void print(std::ostream &os) const
         {
             for(size_t y = 0; y < height; ++y)
@@ -164,6 +221,22 @@ class Crosswords: public Script
                 os << std::endl;
             }
             os << std::endl;
+        }
+
+        size_t black_tile_count() const
+        {
+            size_t count = 0;
+            for(size_t i = 0; i < width * height; ++i)
+                count += (letters[i].val() == 'z' + 1);
+            return count;
+        }
+
+        size_t scrabble_score() const
+        {
+            size_t score = 0;
+            for(size_t i = 0; i < width * height; ++i)
+                score += scrabble_french(letters[i].val());
+            return score;
         }
 
     protected:
@@ -253,10 +326,12 @@ void run_single(size_t nthreads, std::vector<int> indices = std::vector<int>())
 
     Crosswords model(opt, WIDTH, HEIGHT, indices);
     Search::Options o;
-    Search::Cutoff *c = Search::Cutoff::constant(70000);
-    o.cutoff = c;
+    //Search::Cutoff *c = Search::Cutoff::constant(70000);
+    //o.cutoff = c;
     o.threads = nthreads;
-    RBS<Crosswords, DFS> e(&model, o);
+    //RBS<Crosswords, DFS> e(&model, o);
+    //RBS<Crosswords, BAB> e(&model, o);
+    BAB<Crosswords> e(&model, o);
     if(auto *p = e.next())
     {
         cout_mutex.lock();
@@ -339,7 +414,10 @@ int main(void)
             thread.join();
     }
     else
-        run_single(4);
+    {
+        for(size_t i = 0; i < 10; ++i)
+            run_single(4);
+    }
 
     delete dfa_borderH;
     delete dfa_borderV;
