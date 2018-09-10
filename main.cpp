@@ -26,49 +26,15 @@ static DFA * dfa_secondV;
 
 static std::mutex cout_mutex;
 
+const int SCRABBLE_FRENCH_COSTS [26] = {
+    1, 3, 3, 2, 1, 4, 2, 4, 1, 8, 10, 1, 2,
+    1, 1, 3, 8, 1, 1, 1, 1, 4, 10, 10, 10, 10
+};
+
 static size_t scrabble_french(char c)
 {
-    switch(c)
-    {
-        case 'a':
-        case 'e':
-        case 'i':
-        case 'l':
-        case 'n':
-        case 'o':
-        case 'r':
-        case 's':
-        case 't':
-        case 'u':
-            return 1;
-
-        case 'd':
-        case 'g':
-        case 'm':
-            return 2;
-
-        case 'b':
-        case 'c':
-        case 'p':
-            return 3;
-
-        case 'f':
-        case 'h':
-        case 'v':
-            return 4;
-
-        case 'j':
-        case 'q':
-            return 8;
-
-        case 'k':
-        case 'w':
-        case 'x':
-        case 'y':
-        case 'z':
-            return 10;
-
-    }
+    if(c >= 'a' && c <= 'z')
+        return SCRABBLE_FRENCH_COSTS[c - 'a'];
     return 0;
 }
 
@@ -195,12 +161,16 @@ class Crosswords: public Script
         virtual void constrain(const Space &_base)
         {
             const Crosswords &base = static_cast<const Crosswords&>(_base);
-            size_t btc = base.black_tile_count();
-            size_t score = base.scrabble_score();
 
-            std::cout << "[" << btc << ", " << score << "]" << std::endl;
-            
-            count(*this, letters, 'z'+1, IRT_LE, btc);
+            // Fewer black tiles than former solution
+            count(*this, letters, 'z'+1, IRT_LE, base.black_tile_count());
+
+            // Better scrabble score than former solution
+            IntArgs costs(26, SCRABBLE_FRENCH_COSTS);
+            IntVarArgs lettercount(*this, 26, 0, width*height);
+            for(size_t i = 0; i < 26; ++i)
+                count(*this, letters, 'a' + i, IRT_EQ, lettercount[i]);
+            linear(*this, costs, lettercount, IRT_GR, base.scrabble_score());
         }
 
         virtual void print(std::ostream &os) const
