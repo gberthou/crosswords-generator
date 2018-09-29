@@ -206,6 +206,7 @@ public:
             for(int c = DFA_MIN_SYMBOL; c < DFA_MAX_SYMBOL; ++c)
                 if(c != word[i])
                     transitions.insert(std::make_pair(DictionaryTransition{tmp, c}, begdontcare));
+            transitions.insert(std::make_pair(DictionaryTransition{tmp, DFA_MAX_SYMBOL}, begblacktile));
 
             tmp = tryTransitionOrCreate(tmp, word[i]);
         }
