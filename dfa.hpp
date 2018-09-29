@@ -189,24 +189,29 @@ public:
 
     void MakeSingleWord(const std::string &word)
     {
-        int begBlackTile = tryTransitionOrCreate(0, DFA_MAX_SYMBOL);
+        int begdontcare = createState();
+        int begblacktile = tryTransitionOrCreate(begdontcare, DFA_MAX_SYMBOL);
         for(int c = DFA_MIN_SYMBOL; c < DFA_MAX_SYMBOL; ++c)
             if(c != word[0])
             {
-                transitions.insert(std::make_pair(DictionaryTransition{0, c}, 0));
-                transitions.insert(std::make_pair(DictionaryTransition{begBlackTile, c}, 0));
+                transitions.insert(std::make_pair(DictionaryTransition{0, c}, begdontcare));
+                transitions.insert(std::make_pair(DictionaryTransition{begdontcare, c}, begdontcare));
+                transitions.insert(std::make_pair(DictionaryTransition{begblacktile, c}, begdontcare));
             }
 
         int tmp = tryTransitionOrCreate(0, word[0]);
-        transitions.insert(std::make_pair(DictionaryTransition{begBlackTile, word[0]}, tmp));
+        transitions.insert(std::make_pair(DictionaryTransition{begblacktile, word[0]}, tmp));
         for(size_t i = 1; i < word.size(); ++i)
         {
             for(int c = DFA_MIN_SYMBOL; c < DFA_MAX_SYMBOL; ++c)
                 if(c != word[i])
-                    transitions.insert(std::make_pair(DictionaryTransition{tmp, c}, 0));
+                    transitions.insert(std::make_pair(DictionaryTransition{tmp, c}, begdontcare));
 
             tmp = tryTransitionOrCreate(tmp, word[i]);
         }
+
+        for(int c = DFA_MIN_SYMBOL; c < DFA_MAX_SYMBOL; ++c)
+            transitions.insert(std::make_pair(DictionaryTransition{tmp, c}, begdontcare));
 
         tmp = tryTransitionOrCreate(tmp, DFA_MAX_SYMBOL);
         makeStateFinal(tmp);
