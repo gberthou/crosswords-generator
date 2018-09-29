@@ -26,6 +26,14 @@ static DFA * dfa_secondV;
 
 static std::mutex cout_mutex;
 
+static IntVarArgs reverse(const IntVarArgs &args)
+{
+    IntVarArgs ret(args.size());
+    for(int i = 0; i < args.size(); ++i)
+        ret[args.size()-1-i] = args[i];
+    return ret;
+}
+
 class Crosswords: public Script
 {
     public:
@@ -87,12 +95,21 @@ class Crosswords: public Script
             // Horizontal words
             for(size_t y = 1; y < height-1; ++y)
             {
+                bool reversed = ((y%2) == 1);
+                //bool reversed=false;
+
                 // First words
                 IntVarArgs row = letters.slice(y*width, 1, width);
+                if(reversed)
+                    row = reverse(row);
                 extensional(*this, wordPos1H[y-1] + row + ind1H[y-1] + wordLen1H[y-1], *dfa_firstH);
 
                 // Second words
-                IntVarArgs reducedRow = letters.slice(y*width+3, 1, width-3);
+                IntVarArgs reducedRow;
+                if(reversed)
+                    reducedRow = reverse(letters.slice(y*width, 1, width-3));
+                else
+                    reducedRow = letters.slice(y*width+3, 1, width-3);
                 extensional(*this, wordPos2H[y-1] + reducedRow + ind2H[y-1], *dfa_secondH);
                 rel(*this, wordPos2H[y-1] == wordPos1H[y-1] + wordLen1H[y-1] + 1);
             }
@@ -100,12 +117,21 @@ class Crosswords: public Script
             // Vertical words
             for(size_t x = 1; x < width-1; ++x)
             {
+                bool reversed = ((x%2) == 1);
+                //bool reversed = false;
+
                 // First words
                 IntVarArgs col = letters.slice(x, width, height);
+                if(reversed)
+                    col = reverse(col);
                 extensional(*this, wordPos1V[x-1] + col + ind1V[x-1] + wordLen1V[x-1], *dfa_firstV);
 
                 // Second words
-                IntVarArgs reducedCol = letters.slice(x+3*width, width, height-3);
+                IntVarArgs reducedCol;
+                if(reversed)
+                    reducedCol = reverse(letters.slice(x, width, height-3));
+                else
+                    reducedCol = letters.slice(x+3*width, width, height-3);
                 extensional(*this, wordPos2V[x-1] + reducedCol + ind2V[x-1], *dfa_secondV);
                 rel(*this, wordPos2V[x-1] == wordPos1V[x-1] + wordLen1V[x-1] + 1);
             }
