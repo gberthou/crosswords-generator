@@ -165,6 +165,28 @@ public:
         }
     }
 
+    void MakeNoIndex(const Dictionary &dict, size_t maxlength)
+    {
+        int bridge = createState();
+        for(int c = DFA_MIN_SYMBOL; c < DFA_MAX_SYMBOL; ++c)
+        {
+            int state = tryTransitionOrCreate(0, c);
+            makeStateFinal(state);
+            transitions.insert(std::make_pair(DictionaryTransition{bridge, c}, state));
+        }
+
+        for(size_t length = 2; length <= maxlength; ++length)
+        {
+            const auto &words = dict.GetCollection(length);
+            for(const auto &word: words)
+            {
+                int state = addWord(word, 0);
+                makeStateFinal(state);
+                transitions.insert(std::make_pair(DictionaryTransition{state, DFA_MAX_SYMBOL}, bridge));
+            }
+        }
+    }
+
 private:
     int createState()
     {
@@ -239,6 +261,8 @@ class DictionaryDFA
             secondH.MakeSecond(dict, width);
             secondV.MakeSecond(dict, height);
 
+            noIndex.MakeNoIndex(dict, height);
+
             std::cout << "DFA initialized!" << std::endl;
         }
 
@@ -272,6 +296,11 @@ class DictionaryDFA
             return secondV.ToGecodeAlloc();
         }
 
+
+        Gecode::DFA *NoIndex() const
+        {
+            return noIndex.ToGecodeAlloc();
+        }
     protected:
 
         const Dictionary &dictionary;
@@ -282,6 +311,8 @@ class DictionaryDFA
         Graph firstV;
         Graph secondH;
         Graph secondV;
+
+        Graph noIndex;
 };
 
 #endif

@@ -23,6 +23,7 @@ static DFA * dfa_firstH;
 static DFA * dfa_firstV;
 static DFA * dfa_secondH;
 static DFA * dfa_secondV;
+static DFA * dfa_noindex;
 
 static std::mutex cout_mutex;
 
@@ -34,8 +35,9 @@ class Crosswords: public Script
             width(width),
             height(height),
 
-            letters(*this, width * height, 'a', 'z'+1), // Letters go from 'a' to 'z', and black tile is 'z'+1 ('{')
+            letters(*this, width * height, 'a', 'z'+1) // Letters go from 'a' to 'z', and black tile is 'z'+1 ('{')
 
+            /*
             indBH(*this, 2, dictionary.FirstIndexOfLength(width), dictionary.LastIndexOfLength(width)),
             indBV(*this, 2, dictionary.FirstIndexOfLength(height), dictionary.LastIndexOfLength(height)),
 
@@ -51,10 +53,12 @@ class Crosswords: public Script
 
             wordLen1H(*this, height-2, 2, width),
             wordLen1V(*this, width-2, 2, height)
+            */
         {
             // Fewer black tiles than X
             count(*this, letters, 'z'+1, IRT_LQ, 10); // <= 10
 
+#if 0
             auto allIndices = indBH+indBV+ind1H+ind2H+ind1V+ind2V;
 
             distinct(*this, allIndices, MIN_INDEX);
@@ -115,6 +119,24 @@ class Crosswords: public Script
             branch(*this, ind2H+ind2V, INT_VAR_NONE(), INT_VAL_RND(seed));
 
             branch(*this, wordPos1H+wordPos1V, INT_VAR_NONE(), INT_VAL_MIN());
+#else
+            (void) orderedMandatory;
+
+            for(size_t y = 0; y < height; ++y)
+            {
+                IntVarArgs row = letters.slice(y*width, 1, width);
+                extensional(*this, row, *dfa_noindex);
+            }
+
+            for(size_t x = 0; x < width; ++x)
+            {
+                IntVarArgs col = letters.slice(x, width, height);
+                extensional(*this, col, *dfa_noindex);
+            }
+
+            auto seed = std::time(nullptr);
+            branch(*this, letters, INT_VAR_RND(seed), INT_VAL_RND(seed));
+#endif
         }
 
         Crosswords(Crosswords &crosswords):
@@ -124,6 +146,7 @@ class Crosswords: public Script
         {
             letters.update(*this, crosswords.letters);
 
+            /*
             indBH.update(*this, crosswords.indBH);
             indBV.update(*this, crosswords.indBV);
 
@@ -139,6 +162,7 @@ class Crosswords: public Script
 
             wordLen1H.update(*this, crosswords.wordLen1H);
             wordLen1V.update(*this, crosswords.wordLen1V);
+            */
         }
 
         virtual Space *copy(void)
@@ -171,6 +195,7 @@ class Crosswords: public Script
         size_t height;
         IntVarArray letters;
 
+        /*
         IntVarArray indBH;
         IntVarArray indBV;
 
@@ -186,6 +211,7 @@ class Crosswords: public Script
 
         IntVarArray wordLen1H;
         IntVarArray wordLen1V;
+        */
 };
 
 bool permutation_valid(size_t width, size_t height, const std::vector<int> &indices)
@@ -314,6 +340,7 @@ int main(void)
     dfa_firstV = dictDFA.FirstV();
     dfa_secondH = dictDFA.SecondH();
     dfa_secondV = dictDFA.SecondV();
+    dfa_noindex = dictDFA.NoIndex();
 
     std::cout << "DFA conversion done!" << std::endl;
 
