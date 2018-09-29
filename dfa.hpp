@@ -187,6 +187,34 @@ public:
         }
     }
 
+    void MakeSingleWord(const std::string &word)
+    {
+        int begBlackTile = tryTransitionOrCreate(0, DFA_MAX_SYMBOL);
+        for(int c = DFA_MIN_SYMBOL; c < DFA_MAX_SYMBOL; ++c)
+            if(c != word[0])
+            {
+                transitions.insert(std::make_pair(DictionaryTransition{0, c}, 0));
+                transitions.insert(std::make_pair(DictionaryTransition{begBlackTile, c}, 0));
+            }
+
+        int tmp = tryTransitionOrCreate(0, word[0]);
+        transitions.insert(std::make_pair(DictionaryTransition{begBlackTile, word[0]}, tmp));
+        for(size_t i = 1; i < word.size(); ++i)
+        {
+            for(int c = DFA_MIN_SYMBOL; c < DFA_MAX_SYMBOL; ++c)
+                if(c != word[i])
+                    transitions.insert(std::make_pair(DictionaryTransition{tmp, c}, 0));
+
+            tmp = tryTransitionOrCreate(tmp, word[i]);
+        }
+
+        tmp = tryTransitionOrCreate(tmp, DFA_MAX_SYMBOL);
+        makeStateFinal(tmp);
+
+        for(int c = DFA_MIN_SYMBOL; c <= DFA_MAX_SYMBOL; ++c)
+            transitions.insert(std::make_pair(DictionaryTransition{tmp, c}, tmp));
+    }
+
 private:
     int createState()
     {
@@ -261,7 +289,7 @@ class DictionaryDFA
             secondH.MakeSecond(dict, width);
             secondV.MakeSecond(dict, height);
 
-            noIndex.MakeNoIndex(dict, height);
+            noIndex.MakeNoIndex(dict, width > height ? width : height);
 
             std::cout << "DFA initialized!" << std::endl;
         }
@@ -296,11 +324,18 @@ class DictionaryDFA
             return secondV.ToGecodeAlloc();
         }
 
-
         Gecode::DFA *NoIndex() const
         {
             return noIndex.ToGecodeAlloc();
         }
+
+        static Gecode::DFA *Mandatory(const std::string &word)
+        {
+            Graph graph;
+            graph.MakeSingleWord(word);
+            return graph.ToGecodeAlloc();
+        }
+
     protected:
 
         const Dictionary &dictionary;

@@ -30,7 +30,7 @@ static std::mutex cout_mutex;
 class Crosswords: public Script
 {
     public:
-        Crosswords(const SizeOptions &opt, size_t width, size_t height, const std::vector<int> &orderedMandatory = std::vector<int>()):
+        Crosswords(const SizeOptions &opt, size_t width, size_t height, const std::vector<DFA*> &mandatory = std::vector<DFA*>()):
             Script(opt),
             width(width),
             height(height),
@@ -120,7 +120,16 @@ class Crosswords: public Script
 
             branch(*this, wordPos1H+wordPos1V, INT_VAR_NONE(), INT_VAL_MIN());
 #else
-            (void) orderedMandatory;
+            IntVarArgs allwords;
+            IntVar dummy(*this, 'z'+1, 'z'+1);
+            for(size_t y = 0; y < height; ++y)
+                allwords = allwords + letters.slice(y*width, 1, width) + dummy;
+            for(size_t x = 0; x < width; ++x)
+                allwords = allwords + letters.slice(x, width, height) + dummy;
+            unshare(*this, allwords);
+
+            for(const auto dfa : mandatory)
+                extensional(*this, allwords, *dfa);
 
             for(size_t y = 0; y < height; ++y)
             {
@@ -214,6 +223,7 @@ class Crosswords: public Script
         */
 };
 
+/*
 bool permutation_valid(size_t width, size_t height, const std::vector<int> &indices)
 {
     // Assumes order: indBH(2) + indBV(2) + ind1H(H-2) + ind2H(H-2)
@@ -270,14 +280,14 @@ bool permutation_valid(size_t width, size_t height, const std::vector<int> &indi
     
     return true;
 }
+*/
 
-void run_single(size_t nthreads, std::vector<int> indices = std::vector<int>())
+void run_single(size_t nthreads, std::vector<DFA*> dfas = std::vector<DFA*>())
 {
-
     SizeOptions opt("Crosswords");
     opt.solutions(0);
 
-    Crosswords model(opt, WIDTH, HEIGHT, indices);
+    Crosswords model(opt, WIDTH, HEIGHT, dfas);
     Search::Options o;
     Search::Cutoff *c = Search::Cutoff::constant(70000);
     o.cutoff = c;
@@ -291,6 +301,7 @@ void run_single(size_t nthreads, std::vector<int> indices = std::vector<int>())
     }
 }
 
+/*
 void run_single_mandatory(const std::vector<int> &indices)
 {
     if(!permutation_valid(WIDTH, HEIGHT, indices))
@@ -324,15 +335,20 @@ size_t permutation_count(size_t n, size_t k)
 
     return result;
 }
+*/
 
 int main(void)
 {
-    std::vector<int> mandatoryIndices;
-    dictionary.AddMandatoryWords("mandatory", HEIGHT, mandatoryIndices);
+    std::vector<std::string> mandatoryWords;
+    std::vector<DFA*> mandatoryDFAs;
+    dictionary.AddMandatoryWords("mandatory", HEIGHT, mandatoryWords);
 
     DictionaryDFA dictDFA(dictionary, WIDTH, HEIGHT);
 
     std::cout << "DFA conversion start..." << std::endl;
+
+    for(const auto word : mandatoryWords)
+        mandatoryDFAs.push_back(DictionaryDFA::Mandatory(word));
 
     dfa_borderH = dictDFA.BorderH();
     dfa_borderV = dictDFA.BorderV();
@@ -344,6 +360,7 @@ int main(void)
 
     std::cout << "DFA conversion done!" << std::endl;
 
+    /*
     if(mandatoryIndices.size())
     {
         size_t wordCount = 4 // Borders
@@ -366,7 +383,8 @@ int main(void)
             thread.join();
     }
     else
-        run_single(4);
+    */
+    run_single(4, mandatoryDFAs);
 
     delete dfa_borderH;
     delete dfa_borderV;
@@ -374,6 +392,9 @@ int main(void)
     delete dfa_firstV;
     delete dfa_secondH;
     delete dfa_secondV;
+
+    for(auto dfa : mandatoryDFAs)
+        delete dfa;
 
     return EXIT_SUCCESS;
 }

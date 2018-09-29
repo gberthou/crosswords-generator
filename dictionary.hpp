@@ -25,25 +25,21 @@ class Dictionary
             }
         }
 
-        void AddMandatoryWords(const std::string &filename, size_t maxlen, std::vector<int> &indices)
+        void AddMandatoryWords(const std::string &filename, size_t maxlen, std::vector<std::string> &words)
         {
-            std::vector<std::string> tosearch;
-
             std::ifstream file(filename);
             std::string line;
+
+            words.clear();
 
             while(std::getline(file, line))
             {
                 if(line.size() >= 2 && line.size() <= maxlen)
                 {
                     collections[line.size()-2].insert(line);
-                    tosearch.push_back(line);
+                    words.push_back(line);
                 }
             }
-
-            indices.clear();
-            for(const auto &s : tosearch)
-                indices.push_back(IndexOfWord(s));
         }
 
         int FirstIndexOfLength(size_t length) const
