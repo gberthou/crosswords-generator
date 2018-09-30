@@ -164,6 +164,59 @@ class Crosswords: public Script
                 os << std::endl;
             }
             os << std::endl;
+
+            std::vector<std::string> words;
+            wordlist(words);
+            for(const auto word : words)
+                std::cout << word << std::endl;
+        }
+        
+        virtual void wordlist(std::vector<std::string> &words) const
+        {
+            words.clear();
+
+            for(size_t y = 0; y < height; ++y)
+            {
+                std::string tmp = "";
+                for(size_t x = 0; x < width; ++x)
+                {
+                    auto var = letters[x+y*width];
+                    if(var.min() != var.max())
+                        tmp += '?';
+                    else if(var.val() != 'z'+1)
+                        tmp += var.val();
+                    else
+                    {
+                        if(tmp.size() >= 2)
+                            words.push_back(tmp);
+                        tmp = "";
+                    }
+                }
+                if(tmp.size() >= 2)
+                    words.push_back(tmp);
+            }
+
+            for(size_t x = 0; x < width; ++x)
+            {
+                std::string tmp = "";
+                for(size_t y = 0; y < height; ++y)
+                {
+                    auto var = letters[x+y*width];
+                    if(var.min() != var.max())
+                        tmp += '?';
+                    else if(var.val() != 'z'+1)
+                        tmp += var.val();
+                    else
+                    {
+                        if(tmp.size() >= 2)
+                            words.push_back(tmp);
+                        tmp = "";
+                    }
+                }
+
+                if(tmp.size() >= 2)
+                    words.push_back(tmp);
+            }
         }
 
     protected:
