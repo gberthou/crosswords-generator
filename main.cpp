@@ -1,6 +1,7 @@
 #include <iostream>
 #include <ctime>
 #include <vector>
+#include <set>
 #include <algorithm>
 #include <thread>
 #include <mutex>
@@ -26,6 +27,15 @@ static DFA * dfa_secondV;
 static DFA * dfa_noindex;
 
 static std::mutex cout_mutex;
+
+static bool redundant_word(const std::vector<std::string> &words)
+{
+    std::set<std::string> tmp;
+    for(const auto word : words)
+        if(!tmp.insert(word).second)
+            return true;
+    return false;
+}
 
 class Crosswords: public Script
 {
@@ -202,6 +212,9 @@ class Crosswords: public Script
             wordlist(words);
             for(const auto word : words)
                 std::cout << word << std::endl;
+
+            if(redundant_word(words))
+                std::cout << std::endl << "Warning: Redundant words!"<< std::endl;
         }
         
         virtual void wordlist(std::vector<std::string> &words) const
