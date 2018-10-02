@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <thread>
 #include <mutex>
+#include <cmath>
+#include <random>
 
 #include <gecode/driver.hh>
 #include <gecode/int.hh>
@@ -12,10 +14,32 @@
 #include "dictionary.hpp"
 #include "dfa.hpp"
 
+struct WordConstraint
+{
+    std::string word;
+    size_t rowcol;
+    int actualpos;
+
+    WordConstraint(const std::string &s, size_t rc, size_t ap):
+        word(s),
+        rowcol(rc),
+        actualpos(ap)
+    {
+    }
+
+    WordConstraint(const WordConstraint &other):
+        word(other.word),
+        rowcol(other.rowcol),
+        actualpos(other.actualpos)
+    {
+    }
+};
+
 using namespace Gecode;
 
 const size_t WIDTH = 9;
 const size_t HEIGHT = 11;
+const size_t COMBINATION_BASE = 4 * (WIDTH + HEIGHT);
 static Dictionary dictionary("dict", HEIGHT);
 
 static DFA * dfa_noindex;
@@ -31,10 +55,15 @@ static bool redundant_word(const std::vector<std::string> &words)
     return false;
 }
 
+static bool is_horizontal(size_t rowcol, size_t height)
+{
+    return rowcol < height;
+}
+
 class Crosswords: public Script
 {
     public:
-        Crosswords(const SizeOptions &opt, size_t width, size_t height, const std::vector<DFA*> &mandatory = std::vector<DFA*>()):
+        Crosswords(const SizeOptions &opt, size_t width, size_t height, const std::vector<WordConstraint> &constraints = std::vector<WordConstraint>()):
             Script(opt),
             width(width),
             height(height),
@@ -52,8 +81,16 @@ class Crosswords: public Script
                 allwords = allwords + letters.slice(x, width, height) + dummy;
             unshare(*this, allwords);
 
-            for(const auto dfa : mandatory)
-                extensional(*this, allwords, *dfa);
+            for(const auto constraint : constraints)
+            {
+                // TODO: Add black tiles around the words if they don't take the entire row/column
+
+                bool horizontal = is_horizontal(constraint.rowcol, height);
+                size_t index = (horizontal ? constraint.rowcol * width : constraint.rowcol - height);
+
+                for(size_t i = 0; i < constraint.word.size(); ++i, index += (horizontal ? 1 : width))
+                    rel(*this, letters[index], IRT_EQ, constraint.word[i]);
+            }
 
             for(size_t y = 0; y < height; ++y)
             {
@@ -86,6 +123,10 @@ class Crosswords: public Script
 
         virtual void print(std::ostream &os) const
         {
+            for(size_t i = 0; i < 16; ++i)
+                os << '#';
+            os << std::endl;
+
             for(size_t y = 0; y < height; ++y)
             {
                 for(size_t x = 0; x < width; ++x)
@@ -106,10 +147,11 @@ class Crosswords: public Script
             std::vector<std::string> words;
             wordlist(words);
             for(const auto word : words)
-                std::cout << word << std::endl;
+                os << word << std::endl;
 
             if(redundant_word(words))
-                std::cout << std::endl << "Warning: Redundant words!"<< std::endl;
+                os << std::endl << "Warning: Redundant words!"<< std::endl;
+            os << std::endl;
         }
         
         virtual void wordlist(std::vector<std::string> &words) const
@@ -166,71 +208,65 @@ class Crosswords: public Script
         IntVarArray letters;
 };
 
-/*
-bool permutation_valid(size_t width, size_t height, const std::vector<int> &indices)
+static int local2actual(size_t localpos, size_t rowcollength, size_t wordlength)
 {
-    // Assumes order: indBH(2) + indBV(2) + ind1H(H-2) + ind2H(H-2)
-    //              + ind1V(W-2) + ind2V(W-2);
-
-    for(size_t i = 0; i < indices.size(); ++i)
+    switch(localpos)
     {
-        int index = indices[i];
-        if(index)
-        {
-            std::string word = dictionary.GetWord(index);
-            size_t size = word.size();
+        case 1:
+            return 2;
 
-            if(i < 2)
-            {
-                if(size != width)
-                    return false;
-            }
-            else if(i < 4)
-            {
-                if(size != height)
-                    return false;
-            }
-            else if(i < 2 + height)
-            {
-                if(size > width)
-                    return false;
-                
-                int other = indices[i + height - 2];
-                if(other && size+dictionary.GetWord(other).size()+1 > width)
-                    return false;
-            }
-            else if(i < 2*height)
-            {
-                if(size + 3 > width)
-                    return false;
-            }
-            else if(i < 2*height + width - 2)
-            {
-                if(size > height)
-                    return false;
-                
-                int other = indices[i + width - 2];
-                if(other && size+dictionary.GetWord(other).size()+1 > height)
-                    return false;
-            }
-            else // i < 2*(width+height-2)
-            {
-                if(size + 3 > height)
-                    return false;
-            }
-        }
+        case 2:
+            return rowcollength - wordlength;
+
+        case 3:
+            return rowcollength - 2 - wordlength;
+
+        default:
+            return 0;
     }
-    
+}
+
+
+static bool combination_valid(size_t width, size_t height, size_t combination, const std::vector<std::string> &mandatory, std::vector<WordConstraint> &constraints)
+{
+    // TODO: better check because an actual combination may have crossing words
+    std::vector<bool> available(width * height, true);
+    constraints.clear();
+
+    for(size_t i = 0; i < mandatory.size(); ++i)
+    {
+        size_t encodedPosition = (combination % COMBINATION_BASE);
+        size_t rowcol = encodedPosition / 4;
+        size_t localpos = (encodedPosition % 4);
+        bool horizontal = is_horizontal(rowcol, height);
+        int actualpos = local2actual(localpos, horizontal?width:height, mandatory[i].size());
+
+        if(actualpos < 0)
+            return false;
+
+        size_t index = (horizontal ? rowcol * width : rowcol - height);
+        for(size_t j = 0; j < mandatory[i].size(); ++j, index += (horizontal ? 1 : width))
+        {
+            size_t p = actualpos + j;
+            if(p >= (horizontal ? width : height) || !available[index])
+                return false;
+            available[index] = false;
+        }
+
+        constraints.emplace_back(mandatory[i], rowcol, actualpos);
+
+        combination /= COMBINATION_BASE;
+    }
+
     return true;
 }
-*/
 
-void run_single(size_t nthreads, std::vector<DFA*> dfas = std::vector<DFA*>())
+void run_single(size_t nthreads, std::vector<WordConstraint> constraints = std::vector<WordConstraint>())
 {
     SizeOptions opt("Crosswords");
     opt.solutions(0);
 
-    Crosswords model(opt, WIDTH, HEIGHT, dfas);
+    Crosswords model(opt, WIDTH, HEIGHT, constraints);
     Search::Options o;
     Search::Cutoff *c = Search::Cutoff::constant(70000);
     o.cutoff = c;
@@ -244,89 +280,62 @@ void run_single(size_t nthreads, std::vector<DFA*> dfas = std::vector<DFA*>())
     }
 }
 
-/*
-void run_single_mandatory(const std::vector<int> &indices)
+void run_single_mandatory(size_t combination, const std::vector<std::string> &mandatory)
 {
-    if(!permutation_valid(WIDTH, HEIGHT, indices))
+    std::vector<WordConstraint> constraints;
+    if(!combination_valid(WIDTH, HEIGHT, combination, mandatory, constraints))
         return;
-    run_single(1, indices);
+    run_single(1, constraints);
 }
 
-void run_concurrently(std::vector<int> indices, size_t nthreads, size_t id)
+void run_concurrently(const std::vector<std::string> &mandatory, const std::vector<size_t> &combinations, size_t nthreads, size_t id)
 {
-    size_t i = 0;
-    do
-    {
-        if((i%nthreads) != id)
-        {
-            ++i;
-            continue;
-        }
-
-        run_single_mandatory(indices);
-        ++i;
-    } while(std::prev_permutation(indices.begin(), indices.end()));
+    for(size_t i = 0; i < combinations.size(); ++i)
+        if((i%nthreads) == id)
+            run_single_mandatory(combinations[i], mandatory);
 }
-
-size_t permutation_count(size_t n, size_t k)
-{
-    size_t a = n-k;
-
-    size_t result = n--;
-    for(; n > a; --n)
-        result *= n;
-
-    return result;
-}
-*/
 
 int main(void)
 {
     std::vector<std::string> mandatoryWords;
-    std::vector<DFA*> mandatoryDFAs;
     dictionary.AddMandatoryWords("mandatory", HEIGHT, mandatoryWords);
 
     DictionaryDFA dictDFA(dictionary, WIDTH, HEIGHT);
 
     std::cout << "DFA conversion start..." << std::endl;
-
-    for(const auto word : mandatoryWords)
-        mandatoryDFAs.push_back(DictionaryDFA::Mandatory(word));
-
     dfa_noindex = dictDFA.NoIndex();
-
     std::cout << "DFA conversion done!" << std::endl;
 
-    /*
-    if(mandatoryIndices.size())
+    if(mandatoryWords.size())
     {
         size_t wordCount = 4 // Borders
                          + 2*(WIDTH+HEIGHT-4); // 2 words per col/row
-        if(mandatoryIndices.size() > wordCount)
+        if(mandatoryWords.size() > wordCount)
         {
             // TODO Error
         }
 
-        std::cout << permutation_count(wordCount, mandatoryIndices.size()) << " permutations" << std::endl;
+        size_t combination_count = pow(COMBINATION_BASE, mandatoryWords.size());
+        std::cout << combination_count << " combinations at most" << std::endl;
 
-        std::vector<int> indices(wordCount, 0);
-        std::copy(mandatoryIndices.begin(), mandatoryIndices.end(), indices.begin());
-        std::sort(indices.begin(), indices.end(), std::greater<int>());
+        std::vector<size_t> combinations(combination_count);
+        for(size_t i = 0; i < combination_count; ++i)
+            combinations[i] = i;
+
+        std::random_device rd;
+        std::mt19937 g(rd());
+        std::shuffle(combinations.begin(), combinations.end(), g);
 
         std::vector<std::thread> pool;
         for(size_t i = 0; i < 4; ++i)
-            pool.emplace_back(run_concurrently, indices, 4, i);
+            pool.emplace_back(run_concurrently, mandatoryWords, combinations, 4, i);
         for(auto &thread : pool)
             thread.join();
     }
     else
-    */
-    run_single(4, mandatoryDFAs);
+        run_single(4);
 
     delete dfa_noindex;
-
-    for(auto dfa : mandatoryDFAs)
-        delete dfa;
 
     return EXIT_SUCCESS;
 }
