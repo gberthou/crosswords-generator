@@ -14,24 +14,25 @@
 #include "dictionary.hpp"
 #include "dfa.hpp"
 
-struct WordConstraint
+struct GridConstraint
 {
-    std::string word;
-    size_t rowcol;
-    int actualpos;
+    std::vector<char> grid; 
 
-    WordConstraint(const std::string &s, size_t rc, size_t ap):
-        word(s),
-        rowcol(rc),
-        actualpos(ap)
+    GridConstraint()
     {
     }
 
-    WordConstraint(const WordConstraint &other):
-        word(other.word),
-        rowcol(other.rowcol),
-        actualpos(other.actualpos)
+    bool trySet(size_t index, char value)
     {
+        char c = grid[index];
+        if(c == 0)
+        {
+            grid[index] = value;
+            return true;
+        }
+        else if(c == value)
+            return true;
+        return false;
     }
 };
 
@@ -63,7 +64,7 @@ static bool is_horizontal(size_t rowcol, size_t height)
 class Crosswords: public Script
 {
     public:
-        Crosswords(const SizeOptions &opt, size_t width, size_t height, const std::vector<WordConstraint> &constraints = std::vector<WordConstraint>()):
+        Crosswords(const SizeOptions &opt, size_t width, size_t height, const GridConstraint &constraint = GridConstraint()):
             Script(opt),
             width(width),
             height(height),
@@ -71,7 +72,7 @@ class Crosswords: public Script
             letters(*this, width * height, 'a', 'z'+1) // Letters go from 'a' to 'z', and black tile is 'z'+1 ('{')
         {
             // Fewer black tiles than X
-            count(*this, letters, 'z'+1, IRT_LQ, 10); // <= 10
+            count(*this, letters, 'z'+1, IRT_LQ,9); // <= 10
 
             IntVarArgs allwords;
             IntVar dummy(*this, 'z'+1, 'z'+1);
@@ -81,15 +82,11 @@ class Crosswords: public Script
                 allwords = allwords + letters.slice(x, width, height) + dummy;
             unshare(*this, allwords);
 
-            for(const auto constraint : constraints)
+            for(size_t i = 0; i < width*height; ++i)
             {
-                // TODO: Add black tiles around the words if they don't take the entire row/column
-
-                bool horizontal = is_horizontal(constraint.rowcol, height);
-                size_t index = (horizontal ? constraint.rowcol * width : constraint.rowcol - height);
-
-                for(size_t i = 0; i < constraint.word.size(); ++i, index += (horizontal ? 1 : width))
-                    rel(*this, letters[index], IRT_EQ, constraint.word[i]);
+                char c = constraint.grid[i];
+                if(c != 0)
+                    rel(*this, letters[i], IRT_EQ, constraint.grid[i]);
             }
 
             for(size_t y = 0; y < height; ++y)
@@ -226,34 +223,45 @@ static int local2actual(size_t localpos, size_t rowcollength, size_t wordlength)
     }
 }
 
-
-static bool combination_valid(size_t width, size_t height, size_t combination, const std::vector<std::string> &mandatory, std::vector<WordConstraint> &constraints)
+static bool combination_valid(size_t width, size_t height, size_t combination, const std::vector<std::string> &mandatory, GridConstraint &constraint)
 {
-    // TODO: better check because an actual combination may have crossing words
-    std::vector<bool> available(width * height, true);
-    constraints.clear();
+    constraint.grid.clear();
+    constraint.grid.resize(width * height, 0);
 
     for(size_t i = 0; i < mandatory.size(); ++i)
     {
         size_t encodedPosition = (combination % COMBINATION_BASE);
-        size_t rowcol = encodedPosition / 4;
-        size_t localpos = (encodedPosition % 4);
-        bool horizontal = is_horizontal(rowcol, height);
-        int actualpos = local2actual(localpos, horizontal?width:height, mandatory[i].size());
+        size_t rowcol          = encodedPosition / 4;
+        size_t localpos        = (encodedPosition % 4);
+        bool horizontal        = is_horizontal(rowcol, height);
+        int actualpos          = local2actual(localpos, horizontal?width:height, mandatory[i].size());
+        int endpos             = actualpos + mandatory[i].size(); 
 
-        if(actualpos < 0)
+        // Words out of the grid are denied
+        if(actualpos < 0 || endpos > static_cast<int>(horizontal?width:height))
             return false;
 
-        size_t index = (horizontal ? rowcol * width : rowcol - height);
-        for(size_t j = 0; j < mandatory[i].size(); ++j, index += (horizontal ? 1 : width))
+        size_t index = (horizontal ? rowcol * width + actualpos : rowcol - height + actualpos * width);
+
+        if(actualpos > 0)
         {
-            size_t p = actualpos + j;
-            if(p >= (horizontal ? width : height) || !available[index])
+            size_t previndex = index - (horizontal?1:width);
+            if(!constraint.trySet(previndex, 'z'+1))
                 return false;
-            available[index] = false;
         }
 
-        constraints.emplace_back(mandatory[i], rowcol, actualpos);
+        // Here no letter can be outside the grid, so no need to test it
+        for(size_t j = 0; j < mandatory[i].size(); ++j, index += (horizontal ? 1 : width))
+        {
+            if(!constraint.trySet(index, mandatory[i][j]))
+                return false;
+        }
+
+        if(endpos < static_cast<int>(horizontal?width:height))
+        {
+            if(!constraint.trySet(index, 'z'+1))
+                return false;
+        }
 
         combination /= COMBINATION_BASE;
     }
@@ -261,12 +269,12 @@ static bool combination_valid(size_t width, size_t height, size_t combination, c
     return true;
 }
 
-void run_single(size_t nthreads, std::vector<WordConstraint> constraints = std::vector<WordConstraint>())
+void run_single(size_t nthreads, GridConstraint constraint = GridConstraint())
 {
     SizeOptions opt("Crosswords");
     opt.solutions(0);
 
-    Crosswords model(opt, WIDTH, HEIGHT, constraints);
+    Crosswords model(opt, WIDTH, HEIGHT, constraint);
     Search::Options o;
     Search::Cutoff *c = Search::Cutoff::constant(70000);
     o.cutoff = c;
@@ -282,10 +290,10 @@ void run_single(size_t nthreads, std::vector<WordConstraint> constraints = std::
 
 void run_single_mandatory(size_t combination, const std::vector<std::string> &mandatory)
 {
-    std::vector<WordConstraint> constraints;
-    if(!combination_valid(WIDTH, HEIGHT, combination, mandatory, constraints))
+    GridConstraint constraint;
+    if(!combination_valid(WIDTH, HEIGHT, combination, mandatory, constraint))
         return;
-    run_single(1, constraints);
+    run_single(1, constraint);
 }
 
 void run_concurrently(const std::vector<std::string> &mandatory, const std::vector<size_t> &combinations, size_t nthreads, size_t id)
