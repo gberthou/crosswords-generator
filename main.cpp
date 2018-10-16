@@ -82,12 +82,13 @@ class Crosswords: public Script
                 allwords = allwords + letters.slice(x, width, height) + dummy;
             unshare(*this, allwords);
 
-            for(size_t i = 0; i < width*height; ++i)
-            {
-                char c = constraint.grid[i];
-                if(c != 0)
-                    rel(*this, letters[i], IRT_EQ, constraint.grid[i]);
-            }
+            if(constraint.grid.size() == width*height)
+                for(size_t i = 0; i < width*height; ++i)
+                {
+                    char c = constraint.grid[i];
+                    if(c != 0)
+                        rel(*this, letters[i], IRT_EQ, constraint.grid[i]);
+                }
 
             for(size_t y = 0; y < height; ++y)
             {
