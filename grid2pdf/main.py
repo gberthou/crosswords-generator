@@ -1,9 +1,16 @@
 import sys
 
 # TODO: Import definitions from external file
-defsH = [["A l'aise plaisent"], ["Passait de bons maux membres (s')"], ["A cuit t\\^ete", "Partie de s\\'eminaire"], ["Elle retrouve le nectar vers miel", "Tranche de cr\\^epe"], ["Herbe y haies", "Dirham familial"], ["Loupa Capitolina", "Jaune \\`a l'id\\'ee"], ["Arriv\\'e en t\\^ete", "Allant se faire voix"], ["Petit veut rien"], ["Autour du pingre noble"], ["Fronti\\`eres du Canada", "Sc\\`ene de m\\'eninges"], ["Cimes agr\\`es"]]
 
-defsV = [["Il va sang charg\\'e"], ["Bigouden aux pommes", "En forme rompt l'originalit\\'e"], ["Doser pas des eaux", "Par dix !"], ["Bleu scl\\`ere", "Gard\\^at au vrai"], ["Capital de la peine", "En pointes y est"], ["Y r\\'ealisas able", "Elle aime atomes"], ["S\\^ur en cherra", "Compos\\'ee organique"], ["Baie de Charente", "Son lad Cesar"], ["Elles se coupent les cheveux en trois"]]
+# 1
+#defsH = [["A l'aise plaisent"], ["Passait de bons maux membres (s')"], ["A cuit t\\^ete", "Partie de s\\'eminaire"], ["Elle retrouve le nectar vers miel", "Tranche de cr\\^epe"], ["Herbe y haies", "Dirham familial"], ["Loupa Capitolina", "Jaune \\`a l'id\\'ee"], ["Arriv\\'e en t\\^ete", "Allant se faire voix"], ["Petit veut rien"], ["Autour du pingre noble"], ["Fronti\\`eres du Canada", "Sc\\`ene de m\\'eninges"], ["Cimes agr\\`es"]]
+#
+#defsV = [["Il va sang charg\\'e"], ["Bigouden aux pommes", "En forme rompt l'originalit\\'e"], ["Doser pas des eaux", "Par dix !"], ["Bleu scl\\`ere", "Gard\\^at au vrai"], ["Capital de la peine", "En pointes y est"], ["Y r\\'ealisas able", "Elle aime atomes"], ["S\\^ur en cherra", "Compos\\'ee organique"], ["Baie de Charente", "Son lad Cesar"], ["Elles se coupent les cheveux en trois"]]
+
+# 2
+defsH = [["T'es d'X INRIA"], ["Ils est ont"], ["Anti qu'est presto", "Charbon d\\'eboire"], ["Il rafra\\^ichit l'al\\`ene", "Ou\\\"ie film"], ["Pieds de porc", "Petit homme verre", "On y voit gouttes"], ["Moutarde de disjoncte", "Sirop pour le cou"], ["Jaune pousse", "Poulie technique"], ["\\`A t\\^ete de Turcs", "Elle descend du cygne (phon.)"], ["Gras pillage", "Quinquina de eau lande"], ["Frais de notoire", "Carbone \\`a ras"], ["Sales attentes"]]
+
+defsV = [["Au soleil o\\`u l\\`a cuisisse"], ["Ils logent place de la bourse"], ["Pass\\'e cr\\`eme", "Semence tenante"], ["R\\'eput\\'e des insoumis", "Fa\\^ite d'abaca", "L\\`a chut du murmure"], ["Contenu d'un coffre au t\\'enor", "En cool devient ivre", "``To be'' au Mans"], ["Chef d'Italie", "Pass\\'e La Verpilli\\`ere"], ["Mak\\^om bat le tamb\\^ur", "Komi d'office", "Pas mieux que la devise d'Espagne"], ["Provoque un raz-de-mar\\'ee aux pores", "Hache des airs"], ["INSA valeurs"]]
 
 roman = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"]
 
