@@ -94,7 +94,10 @@ class Crosswords: public Script
                 // Second words
                 IntVarArgs reducedRow = letters.slice(y*width+3, 1, width-3);
                 extensional(*this, wordPos2H[y-1] + reducedRow + ind2H[y-1], *dfa_secondH);
-                rel(*this, wordPos2H[y-1] == wordPos1H[y-1] + wordLen1H[y-1] + 1);
+
+                // wp2H[y-1] == wp1H[y-1] + wl1H[y-1] + 1
+                // wp2H[y-1] * 1 + wp1H[y-1] * (-1) + wl1H[y-1] * (-1) == 1
+                linear(*this, std::vector<int> {1, -1, -1}, std::vector<IntVar> {wordPos2H[y-1], wordPos1H[y-1], wordLen1H[y-1]}, IRT_EQ, 1);
             }
             
             // Vertical words
@@ -107,7 +110,10 @@ class Crosswords: public Script
                 // Second words
                 IntVarArgs reducedCol = letters.slice(x+3*width, width, height-3);
                 extensional(*this, wordPos2V[x-1] + reducedCol + ind2V[x-1], *dfa_secondV);
-                rel(*this, wordPos2V[x-1] == wordPos1V[x-1] + wordLen1V[x-1] + 1);
+
+                // wp2V[x-1] == wp1V[x-1] + wl1V[x-1] + 1
+                // wp2V[y-1] * 1 + wp1V[x-1] * (-1) + wl1V[x-1] * (-1) == 1
+                linear(*this, std::vector<int> {1, -1, -1}, std::vector<IntVar> {wordPos2V[x-1], wordPos1V[x-1], wordLen1V[x-1]}, IRT_EQ, 1);
             }
 
             auto seed = std::time(nullptr);
