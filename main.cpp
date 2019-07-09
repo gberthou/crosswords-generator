@@ -26,6 +26,13 @@ static DFA * dfa_secondV;
 
 static std::mutex cout_mutex;
 
+static size_t maxWordCount(size_t dimension)
+{
+    if(dimension < 2)
+        return 1;
+    return (dimension + 1) / 3;
+}
+
 class Crosswords: public Script
 {
     public:
@@ -243,8 +250,12 @@ class Crosswords: public Script
 
 bool permutation_valid(size_t width, size_t height, bool fancyBorders, const std::vector<int> &indices)
 {
-    // Assumes order: ind1H(H) + ind2H(H)
-    //              + ind1V(W) + ind2V(W);
+    size_t wordCountH = maxWordCount(width);
+
+    // Assumes order: ind1H(H) + ind2H(H) + ...
+    //              + ind1V(W) + ind2V(W) + ...;
+
+    std::cout << indices.size() << " indices" << std::endl;
 
     for(size_t i = 0; i < indices.size(); ++i)
     {
@@ -258,36 +269,35 @@ bool permutation_valid(size_t width, size_t height, bool fancyBorders, const std
             {
                 if((i == 0 || i == height-1) && size != width)
                     return false;
-                if((i == 2*height || i == 2*height+width-1) && size != height)
+                if((i == wordCountH*height || i == wordCountH*height+width-1) && size != height)
                     return false;
             }
 
-            if(i < height) // ind1H
+            if(i < wordCountH*height) // indXH
             {
+                size_t x = i / wordCountH;
+                for(size_t j = i - height; x--; j -= height)
+                {
+                    int other = indices[j];
+                    if(other)
+                        size += dictionary.GetWord(other).size() + 1;
+                }
+
                 if(size > width)
                     return false;
-                
-                int other = indices[i + height];
-                if(other && size+dictionary.GetWord(other).size()+1 > width)
-                    return false;
             }
-            else if(i < 2*height) // ind2H
+            else // indXV
             {
-                if(size + 3 > width)
-                    return false;
-            }
-            else if(i < 2*height + width) // ind1V
-            {
+                size_t x = (i - wordCountH*height) / width;
+
+                size += 3*x;
+                for(size_t j = i - height; x--; j -= height)
+                {
+                    int other = indices[j];
+                    if(other)
+                        size += dictionary.GetWord(other).size() + 1;
+                }
                 if(size > height)
-                    return false;
-                
-                int other = indices[i + width];
-                if(other && size+dictionary.GetWord(other).size()+1 > height)
-                    return false;
-            }
-            else // ind2V
-            {
-                if(size + 3 > height)
                     return false;
             }
         }
@@ -372,7 +382,10 @@ int main(void)
 
     if(mandatoryIndices.size())
     {
-        const size_t wordCount = 2*(WIDTH+HEIGHT); // 2 words per col/row
+        size_t wordCountH = maxWordCount(WIDTH);
+        size_t wordCountV = maxWordCount(HEIGHT);
+
+        const size_t wordCount = wordCountH*HEIGHT + wordCountV*WIDTH;
         if(mandatoryIndices.size() > wordCount)
         {
             // TODO Error
