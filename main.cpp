@@ -33,6 +33,14 @@ static size_t maxWordCount(size_t dimension)
     return (dimension + 1) / 3;
 }
 
+static const IntVarArgs aggregate(const std::vector<IntVarArray> &v)
+{
+    IntVarArgs ret;
+    for(auto &it : v)
+        ret = ret + it;
+    return ret;
+}
+
 class Crosswords: public Script
 {
     public:
@@ -41,28 +49,45 @@ class Crosswords: public Script
             width(width),
             height(height),
 
-            letters(*this, width * height, 'a', 'z'+1), // Letters go from 'a' to 'z', and black tile is 'z'+1 ('{')
-
-            ind1H(*this, height, dictionary.FirstIndexOfLength(2), dictionary.LastIndexOfLength(width)),
-            ind2H(*this, height, MIN_INDEX, dictionary.LastIndexOfLength(width-3)),
-            ind1V(*this, width, dictionary.FirstIndexOfLength(2), dictionary.LastIndexOfLength(height)),
-            ind2V(*this, width, MIN_INDEX, dictionary.LastIndexOfLength(height-3)),
-            
-            wordPos1H(*this, height, 0, 2),
-            wordPos2H(*this, height, 3, width+1),
-            wordPos1V(*this, width, 0, 2),
-            wordPos2V(*this, width, 3, height+1),
-
-            wordLen1H(*this, height, 2, width),
-            wordLen1V(*this, width, 2, height)
+            letters(*this, width * height, 'a', 'z'+1) // Letters go from 'a' to 'z', and black tile is 'z'+1 ('{')
         {
+            size_t nWordsH = maxWordCount(width);
+            size_t nWordsV = maxWordCount(height);
+
+            // Words, horizontal
+            for(size_t i = 0; i < nWordsH; ++i)
+            {
+                // Indices
+                indH.emplace_back(*this, height, i == 0 ? dictionary.FirstIndexOfLength(2) : MIN_INDEX, dictionary.LastIndexOfLength(width - 3*i));
+
+                // Positions
+                posH.emplace_back(*this, height, 3*i, i == 0 ? 2 : width+1); // TODO: `width+1`
+
+                // Lengths
+                lenH.emplace_back(*this, height, i == 0 ? 2 : 0, width - 3*i);
+            }
+            
+            // Word indices, vertical
+            for(size_t i = 0; i < nWordsV; ++i)
+            {
+                // Indices
+                indV.emplace_back(*this, width, i == 0 ? dictionary.FirstIndexOfLength(2) : MIN_INDEX, dictionary.LastIndexOfLength(height - 3*i)),
+                 
+                // Positions
+                posV.emplace_back(*this, width, 3*i, i == 0 ? 2 : height+1); // TODO: `height+1`
+
+                // Lengths
+                lenV.emplace_back(*this, width, i == 0 ? 2 : 0, height - 3*i);
+            }
+
             // Fewer black tiles than X
             count(*this, letters, 'z'+1, IRT_LQ, 10); // <= 10
 
-            auto allIndices = ind1H+ind2H+ind1V+ind2V;
+            auto allIndices = aggregate(indH) + aggregate(indV);
 
             distinct(*this, allIndices, MIN_INDEX);
 
+#if 0 // TODO
             /* Borders */
             if(fancyBorders)
             {
@@ -122,12 +147,16 @@ class Crosswords: public Script
                 // wp2V[y] * 1 + wp1V[x] * (-1) + wl1V[x] * (-1) == 1
                 linear(*this, std::vector<int> {1, -1, -1}, std::vector<IntVar> {wordPos2V[x], wordPos1V[x], wordLen1V[x]}, IRT_EQ, 1);
             }
+#else
+            (void) fancyBorders;
+            (void) orderedMandatory;
+#endif
 
             auto seed = std::time(nullptr);
-            branch(*this, ind1H+ind1V, INT_VAR_SIZE_MIN(), INT_VAL_RND(seed));
-            branch(*this, ind2H+ind2V, INT_VAR_NONE(), INT_VAL_RND(seed));
+            branch(*this, allIndices, INT_VAR_SIZE_MIN(), INT_VAL_RND(seed));
+            //branch(*this, ind2H+ind2V, INT_VAR_NONE(), INT_VAL_RND(seed));
 
-            branch(*this, wordPos1H+wordPos1V, INT_VAR_NONE(), INT_VAL_MIN());
+            branch(*this, aggregate(posH) + aggregate(posV), INT_VAR_SIZE_MIN(), INT_VAL_MIN());
         }
 
         Crosswords(Crosswords &crosswords):
@@ -137,18 +166,29 @@ class Crosswords: public Script
         {
             letters.update(*this, crosswords.letters);
 
-            ind1H.update(*this, crosswords.ind1H);
-            ind2H.update(*this, crosswords.ind2H);
-            ind1V.update(*this, crosswords.ind1V);
-            ind2V.update(*this, crosswords.ind2V);
+            indH.resize(crosswords.indH.size());
+            for(size_t i = 0; i < indH.size(); ++i)
+                indH[i].update(*this, crosswords.indH[i]);
 
-            wordPos1H.update(*this, crosswords.wordPos1H);
-            wordPos2H.update(*this, crosswords.wordPos2H);
-            wordPos1V.update(*this, crosswords.wordPos1V);
-            wordPos2V.update(*this, crosswords.wordPos2V);
+            indV.resize(crosswords.indV.size());
+            for(size_t i = 0; i < indV.size(); ++i)
+                indV[i].update(*this, crosswords.indV[i]);
 
-            wordLen1H.update(*this, crosswords.wordLen1H);
-            wordLen1V.update(*this, crosswords.wordLen1V);
+            posH.resize(crosswords.posH.size());
+            for(size_t i = 0; i < posH.size(); ++i)
+                posH[i].update(*this, crosswords.posH[i]);
+
+            posV.resize(crosswords.posV.size());
+            for(size_t i = 0; i < posV.size(); ++i)
+                posV[i].update(*this, crosswords.posV[i]);
+
+            lenH.resize(crosswords.lenH.size());
+            for(size_t i = 0; i < lenH.size(); ++i)
+                lenH[i].update(*this, crosswords.lenH[i]);
+
+            lenV.resize(crosswords.lenV.size());
+            for(size_t i = 0; i < lenV.size(); ++i)
+                lenV[i].update(*this, crosswords.lenV[i]);
         }
 
         virtual Space *copy(void)
@@ -234,18 +274,14 @@ class Crosswords: public Script
         size_t height;
         IntVarArray letters;
 
-        IntVarArray ind1H;
-        IntVarArray ind2H;
-        IntVarArray ind1V;
-        IntVarArray ind2V;
+        std::vector<IntVarArray> indH;
+        std::vector<IntVarArray> indV;
 
-        IntVarArray wordPos1H;
-        IntVarArray wordPos2H;
-        IntVarArray wordPos1V;
-        IntVarArray wordPos2V;
+        std::vector<IntVarArray> posH;
+        std::vector<IntVarArray> posV;
 
-        IntVarArray wordLen1H;
-        IntVarArray wordLen1V;
+        std::vector<IntVarArray> lenH;
+        std::vector<IntVarArray> lenV;
 };
 
 bool permutation_valid(size_t width, size_t height, bool fancyBorders, const std::vector<int> &indices)
